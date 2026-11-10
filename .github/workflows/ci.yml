@@ -32,12 +32,4 @@ jobs:
           nix build --no-link --print-build-logs --impure --expr \
             'let flake = builtins.getFlake (toString ./.); in builtins.attrValues flake.packages.${builtins.currentSystem}'
       - name: Check Cemu launcher without a display
-        id: cemu-smoke
         run: nix run .#cemu-git -- --version
-      - name: Diagnose Cemu launcher failure on macOS
-        if: failure() && runner.os == 'macOS' && steps.cemu-smoke.outcome == 'failure'
-        run: |
-          executable="$(nix eval --raw .#packages.aarch64-darwin.cemu-git.outPath)/bin/cemu"
-          /usr/bin/lldb --batch -o 'settings set target.disable-aslr false' \
-            -o 'breakpoint set -n __cxa_throw' -o run -o 'thread backtrace all' \
-            -k 'thread backtrace all' -- "$executable" --version

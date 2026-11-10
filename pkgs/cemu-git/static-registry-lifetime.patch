@@ -1,0 +1,84 @@
+diff --git a/src/Common/CafeStaticVar.cpp b/src/Common/CafeStaticVar.cpp
+--- a/src/Common/CafeStaticVar.cpp
++++ b/src/Common/CafeStaticVar.cpp
+@@ -14,12 +14,22 @@ namespace
+-	std::unique_ptr<VHeap> s_iosuStaticDataHeap{};
+-	std::set<CafeStaticData*> s_iosuStaticDataBlocks;
+-	std::mutex s_cafeStaticDataMutex;
++	struct StaticDataRegistry
++	{
++		std::unique_ptr<VHeap> heap;
++		std::set<CafeStaticData*> blocks;
++		std::mutex mutex;
++	};
++
++	StaticDataRegistry& GetStaticDataRegistry()
++	{
++		// Cross-TU static destructors need the registry and mutex until process exit.
++		static auto* registry = new StaticDataRegistry;
++		return *registry;
++	}
+ }
+ 
+ CafeStaticVarBase::CafeStaticVarBase(CafeStaticData& owner, uint32 size, uint32 alignment)
+ 	: m_owner(&owner), m_size(size), m_alignment(alignment)
+ {
+-	std::unique_lock _l(s_cafeStaticDataMutex);
++	std::unique_lock _l(GetStaticDataRegistry().mutex);
+ 	if (!owner.m_vars)
+ 		owner.m_vars = new std::vector<CafeStaticVarBase*>();
+ 	owner.m_vars->push_back(this);
+@@ -30,3 +40,3 @@ CafeStaticVarBase::~CafeStaticVarBase()
+-	std::unique_lock _l(s_cafeStaticDataMutex);
++	std::unique_lock _l(GetStaticDataRegistry().mutex);
+ 	if (m_owner)
+ 	{
+@@ -40,3 +50,3 @@ bool CafeStaticData::HasAnyAllocations()
+-	std::unique_lock _l(s_cafeStaticDataMutex);
+-	return !s_iosuStaticDataBlocks.empty();
++	std::unique_lock _l(GetStaticDataRegistry().mutex);
++	return !GetStaticDataRegistry().blocks.empty();
+ }
+@@ -49,7 +59,8 @@ void CafeStaticData::Allocate()
+-	std::unique_lock _l(s_cafeStaticDataMutex);
++	auto& registry = GetStaticDataRegistry();
++	std::unique_lock _l(registry.mutex);
+ 	if (!m_vars)
+ 		return; // empty
+ 	// register this static block
+-	cemu_assert_debug(!s_iosuStaticDataBlocks.contains(this));
+-	s_iosuStaticDataBlocks.emplace(this);
++	cemu_assert_debug(!registry.blocks.contains(this));
++	registry.blocks.emplace(this);
+ 	// calculate total allocation size
+@@ -71,4 +82,4 @@ void CafeStaticData::Allocate()
+-		if (!s_iosuStaticDataHeap)
+-			s_iosuStaticDataHeap = std::make_unique<VHeap>(mmuRange_IOSU_AREA.getPtr(), mmuRange_IOSU_AREA.getSize());
+-		heap = s_iosuStaticDataHeap.get();
++		if (!registry.heap)
++			registry.heap = std::make_unique<VHeap>(mmuRange_IOSU_AREA.getPtr(), mmuRange_IOSU_AREA.getSize());
++		heap = registry.heap.get();
+ 		m_allocation = heap->alloc(size, alignment);
+@@ -96,3 +107,4 @@ void CafeStaticData::Deallocate()
+-	std::unique_lock _l(s_cafeStaticDataMutex);
++	auto& registry = GetStaticDataRegistry();
++	std::unique_lock _l(registry.mutex);
+ 	if (!m_vars)
+ 		return; // empty
+@@ -104,3 +116,3 @@ void CafeStaticData::Deallocate()
+-		s_iosuStaticDataHeap->free(m_allocation);
++		registry.heap->free(m_allocation);
+ 	}
+ 	else // COS
+@@ -111,9 +123,9 @@ void CafeStaticData::Deallocate()
+-	s_iosuStaticDataBlocks.erase(this);
++	registry.blocks.erase(this);
+ }
+ 
+ CafeStaticData::~CafeStaticData()
+ {
+-	std::unique_lock _l(s_cafeStaticDataMutex);
++	std::unique_lock _l(GetStaticDataRegistry().mutex);
+ 	for (auto& it : *m_vars)
+ 		it->m_owner = nullptr;
+ 	delete m_vars;

@@ -56,6 +56,8 @@ stdenv.mkDerivation {
 
   strictDeps = true;
 
+  patches = lib.optionals stdenv.hostPlatform.isDarwin [ ./static-registry-lifetime.patch ];
+
   postPatch = ''
     # glslang's exported targets reference this target without importing it.
     substituteInPlace CMakeLists.txt \
