@@ -61,7 +61,8 @@ stdenv.mkDerivation {
 
   strictDeps = true;
 
-  patches = lib.optionals stdenv.hostPlatform.isDarwin [ ./static-registry-lifetime.patch ];
+  patches = lib.optionals stdenv.hostPlatform.isDarwin [ ./static-registry-lifetime.patch ]
+    ++ lib.optionals (stdenv.hostPlatform.system == "aarch64-linux") [ ./neon-index-types.patch ];
 
   postPatch = ''
     # glslang's exported targets reference this target without importing it.

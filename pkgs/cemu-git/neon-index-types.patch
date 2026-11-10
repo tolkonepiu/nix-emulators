@@ -1,0 +1,21 @@
+diff --git a/src/Cafe/HW/Latte/Core/LatteIndices.cpp b/src/Cafe/HW/Latte/Core/LatteIndices.cpp
+--- a/src/Cafe/HW/Latte/Core/LatteIndices.cpp
++++ b/src/Cafe/HW/Latte/Core/LatteIndices.cpp
+@@ -524,7 +524,7 @@ void LatteIndices_fastConvertU16_NEON(const void* indexDataInput, void* indexDataOutp
+ 		{
+ 			mTemp = vld1q_u16((uint16*)mRawIndices);
+ 			mRawIndices++;
+-			mTemp = vrev16q_u8(mTemp);
++			mTemp = vreinterpretq_u16_u8(vrev16q_u8(vreinterpretq_u8_u16(mTemp)));
+ 			mMax = vmaxq_u16(mMax, mTemp);
+ 			vst1q_u16((uint16*)mOutputIndices, mTemp);
+ 			mOutputIndices++;
+@@ -570,7 +570,7 @@ void LatteIndices_fastConvertU32_NEON(const void* indexDataInput, void* indexDataOutp
+ 		{
+ 			mTemp = vld1q_u32((uint32*)mRawIndices);
+ 			mRawIndices++;
+-			mTemp = vrev32q_u8(mTemp);
++			mTemp = vreinterpretq_u32_u8(vrev32q_u8(vreinterpretq_u8_u32(mTemp)));
+ 			mMax = vmaxq_u32(mMax, mTemp);
+ 			vst1q_u32((uint32*)mOutputIndices, mTemp);
+ 			mOutputIndices++;
