@@ -10,6 +10,7 @@ Downloads and source trees are content-hash pinned, never unpinned `latest` buil
 `cemu-git` builds upstream `main` from source for Linux (x86_64 and aarch64) and
 macOS (Apple Silicon). The commit and recursive submodules are pinned
 by the `cemu-src` input in `flake.lock`; building does not silently update them.
+Versions use `unstable-YYYYMMDDHHMMSS-<rev>` with the commit's UTC timestamp.
 Upstream considers macOS support experimental.
 
 ```sh
@@ -22,7 +23,7 @@ nix build .#cemu-git
 The package is also available through the overlay as `pkgs.cemu-git` and can be
 selected in NixOS `environment.systemPackages` or Home Manager `home.packages`
 using the same input setup shown below for Eden. The executable is `cemu`.
-Eden remains the default. Intel macOS is not supported by the pinned nixpkgs.
+Eden remains the default.
 On macOS the bundle is installed under `Applications/Cemu.app` in the package.
 
 ## Eden packages
@@ -47,7 +48,7 @@ builds on incompatible CPUs. Choose one variant per profile: they all provide
 the `eden` executable and the same desktop application.
 
 The current macOS DMG contains an **arm64-only** `eden.app`, not a universal
-binary. Intel Macs are not supported. Upstream labels macOS builds experimental
+binary. Upstream labels macOS builds experimental
 and warns about graphical glitches and crashes. Nix does not remove macOS
 security checks; allow the application in Privacy & Security only if you trust it.
 

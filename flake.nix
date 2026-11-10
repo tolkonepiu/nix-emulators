@@ -20,7 +20,7 @@
         }) (manifest.sources.${system} or { }) // {
           cemu-git = pkgs.callPackage ./pkgs/cemu-git {
             src = cemu-src;
-            version = "unstable-${builtins.substring 0 8 cemu-src.lastModifiedDate}-${cemu-src.shortRev}";
+            version = "unstable-${cemu-src.lastModifiedDate}-${cemu-src.shortRev}";
           };
         };
     in
