@@ -34,7 +34,9 @@ if stdenvNoCC.hostPlatform.isLinux then
       nativeBuildInputs = [ dwarfs ];
     } ''
       mkdir -p "$out"
-      dwarfsextract --input ${src} --output "$out" --image-offset auto
+      set -o pipefail
+      dwarfsextract --input ${src} --output "$out" --image-offset auto 2>&1 \
+        | sed -u -E "/^W [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6} Can't set user=0\/group=0 for /d"
       test -x "$out/AppRun"
       test -f "$out/dev.eden_emu.eden.desktop"
     '';
