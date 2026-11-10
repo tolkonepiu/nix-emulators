@@ -2,12 +2,8 @@
   description = "Emulator packages for Linux and macOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-  inputs.cemu-src = {
-    url = "git+https://github.com/cemu-project/Cemu?ref=main&submodules=1";
-    flake = false;
-  };
 
-  outputs = { nixpkgs, cemu-src, ... }:
+  outputs = { nixpkgs, ... }:
     let
       manifest = builtins.fromJSON (builtins.readFile ./pkgs/eden-nightly-bin/sources.json);
       packageSet = system: pkgs:
@@ -18,9 +14,12 @@
             inherit (manifest) version tag;
           };
         }) (manifest.sources.${system} or { }) // {
-          cemu-git = pkgs.callPackage ./pkgs/cemu-git {
-            src = cemu-src;
-            version = "unstable-${cemu-src.lastModifiedDate}-${cemu-src.shortRev}";
+          cemu-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/cemu-git;
+            manifestPath = "pkgs/cemu-git/manifest.json";
+            owner = "cemu-project";
+            repo = "Cemu";
+            fetchSubmodules = true;
           };
         };
     in

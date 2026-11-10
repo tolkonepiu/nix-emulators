@@ -8,8 +8,8 @@ Downloads and source trees are content-hash pinned, never unpinned `latest` buil
 ## Cemu git
 
 `cemu-git` builds upstream `main` from source for Linux (x86_64 and aarch64) and
-macOS (Apple Silicon). The commit and recursive submodules are pinned
-by the `cemu-src` input in `flake.lock`; building does not silently update them.
+macOS (Apple Silicon). The commit, recursive source hash and version are pinned
+in `pkgs/cemu-git/manifest.json`; building does not silently update them.
 Versions use `unstable-YYYYMMDDHHMMSS-<rev>` with the commit's UTC timestamp.
 Upstream considers macOS support experimental.
 
@@ -96,18 +96,39 @@ environment.systemPackages = [ pkgs.eden-nightly-bin-zen2-pgo ];
 
 ## Automatic updates
 
-### Cemu
+### Git source packages
 
-The **Update Cemu git** workflow runs daily at **06:43 UTC** and can also be
-started manually. It runs `nix flake update cemu-src`, leaving the nixpkgs pin
-unchanged, and proposes the `flake.lock` change on `automation/cemu-git`.
-Updates are not auto-merged. To update locally:
+The **Update git packages** workflow runs daily at **06:43 UTC** and can also be
+started manually. It discovers packages exposing an `updateScript`, resolves
+their upstream branches and hashes the exact commits, including submodules when
+requested. Only package manifests change; the nixpkgs pin stays unchanged.
+Updates are proposed on `automation/git-packages` and are not auto-merged.
+Failed downloads or invalid metadata leave the previous manifest intact.
+To update Cemu locally from the repository root:
 
 ```sh
-nix flake update cemu-src
+nix run .#cemu-git.updateScript
 nix flake check --all-systems --no-build
 nix build .#cemu-git
 ```
+
+### Add another git package
+
+The shared scheme is inspired by [Nyx's git packages](https://github.com/chaotic-cx/nyx).
+Add a derivation under `pkgs/<name>-git` accepting `src` and `version`, then
+generate its first manifest with the common updater:
+
+```sh
+nix shell --inputs-from . nixpkgs#git nixpkgs#nix-prefetch-git nixpkgs#python3 -c \
+  python3 scripts/update-git-package.py \
+  --manifest pkgs/example-git/manifest.json --owner OWNER --repo REPO --ref main
+```
+
+Add `--fetch-submodules` if required. Register the package in `flake.nix` using
+`shared/git-package.nix`, following the Cemu entry: package path, manifest path,
+owner/repository, branch and submodule setting. The helper supplies the pinned
+source/version and `updateScript`; the workflow discovers it automatically.
+No new flake input, updater script or workflow is needed for each package.
 
 ### Eden
 
