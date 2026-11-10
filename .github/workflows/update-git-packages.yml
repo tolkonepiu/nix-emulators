@@ -23,6 +23,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@7ab6e7fd29da88e74b1e314a4ae9ac6b5cda3801 # v31.8.0
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: nix-emulators
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Update source manifests without executing upstream code
         run: |
           packages=$(nix eval --json .#packages.x86_64-linux --apply 'packages: builtins.filter (name: (builtins.getAttr name packages) ? updateScript) (builtins.attrNames packages)')

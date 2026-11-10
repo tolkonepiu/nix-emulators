@@ -5,6 +5,31 @@ A collection of emulator packages for Nix: prebuilt
 [Cemu](https://github.com/cemu-project/Cemu) built from a pinned commit of `main`.
 Downloads and source trees are content-hash pinned, never unpinned `latest` builds.
 
+## Binary cache
+
+CI publishes builds to the public [nix-emulators Cachix cache](https://nix-emulators.cachix.org).
+Downloading from it does not require a token. Enable it before building:
+
+```sh
+nix run nixpkgs#cachix -- use nix-emulators
+```
+
+On NixOS or nix-darwin, configure it declaratively instead:
+
+```nix
+nix.settings = {
+  extra-substituters = [ "https://nix-emulators.cachix.org" ];
+  extra-trusted-public-keys = [
+    "nix-emulators.cachix.org-1:8lg5Ku12bMegHXq3KWenzzaR4jnv3ddT5W4r75nyCPA="
+  ];
+};
+```
+
+Apply your system configuration afterwards. Enabling the cache means trusting
+this project's signed binaries; the default Nix cache remains enabled.
+Only outputs already published by CI can be downloaded. Different nixpkgs pins
+or package options may still require local builds.
+
 ## Cemu git
 
 `cemu-git` builds upstream `main` from source for Linux (x86_64 and aarch64) and
