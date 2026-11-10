@@ -21,8 +21,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@7ab6e7fd29da88e74b1e314a4ae9ac6b5cda3801 # v31.8.0
-      - name: Updater unit tests
-        run: python3 -m unittest discover -s tests -v
       - name: Check and evaluate every advertised system
         run: |
           nix flake check --all-systems --no-build

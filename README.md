@@ -147,7 +147,6 @@ python3 scripts/update-eden-nightly.py
 # Re-download and rehash even when the release tag is unchanged:
 python3 scripts/update-eden-nightly.py --force
 
-python3 -m unittest discover -s tests -v
 nix flake check --all-systems --no-build
 nix eval --json .#packages --apply \
   'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
