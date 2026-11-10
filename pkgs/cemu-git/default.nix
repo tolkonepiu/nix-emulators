@@ -39,17 +39,22 @@
   wrapGAppsHook3,
   moltenvk,
 }:
-
+let
+  # Cemu does not use wxWebView; avoid pulling in WebKitGTK on Linux.
+  wxwidgets = if stdenv.hostPlatform.isLinux
+    then wxwidgets_3_3.override { withWebKit = false; }
+    else wxwidgets_3_3;
+in
 stdenv.mkDerivation {
   pname = "cemu-git";
   inherit src version;
 
-  nativeBuildInputs = [ cmake ninja pkg-config wxwidgets_3_3 ]
+  nativeBuildInputs = [ cmake ninja pkg-config wxwidgets ]
     ++ lib.optional stdenv.hostPlatform.isx86_64 nasm
     ++ lib.optionals stdenv.hostPlatform.isLinux [ wrapGAppsHook3 wayland-scanner ];
   buildInputs = [
     boost cubeb curl fmt_12 glm glslang hidapi libpng libusb1 libzip openssl
-    pugixml rapidjson sdl3 spirv-tools wxwidgets_3_3 zarchive zlib zstd
+    pugixml rapidjson sdl3 spirv-tools wxwidgets zarchive zlib zstd
   ] ++ lib.optionals stdenv.hostPlatform.isLinux [
     bluez gamemode gtk3 libglvnd libx11 libxrender vulkan-loader wayland wayland-protocols
   ] ++ lib.optional stdenv.hostPlatform.isDarwin moltenvk;
