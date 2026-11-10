@@ -82,24 +82,6 @@ and atomically updates `pkgs/eden-nightly-bin/sources.json`. Missing files or
 failed downloads leave the previous manifest unchanged. Updates are proposed
 on one reusable branch, `automation/eden-nightly`; they are not auto-merged.
 
-### Enable update PRs
-
-After merging the initial implementation:
-
-1. Open **Settings → Actions → General → Workflow permissions** and enable
-   **Allow GitHub Actions to create and approve pull requests**. Repository or
-   organization policy must permit the workflow's requested `contents: write`
-   and `pull-requests: write` permissions.
-2. Run **Actions → Update Eden nightly → Run workflow** to check the setup.
-
-With the default `GITHUB_TOKEN`, GitHub does **not** trigger PR workflows for
-bot-created commits. The updater therefore runs unit tests and evaluates every
-advertised platform itself. Before merging an update, manually run **CI** on
-the `automation/eden-nightly` branch for native build checks. Alternatively,
-configure an `UPDATE_TOKEN` Actions secret with a dedicated bot token that can
-write repository contents and pull requests; its PRs trigger CI normally.
-No token is needed for upstream downloads.
-
 ### Update locally and verify
 
 ```sh
