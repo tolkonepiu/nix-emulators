@@ -1,0 +1,48 @@
+{
+  "version": "1794272405.6a767ac43a",
+  "tag": "v1794272405.6a767ac43a",
+  "sources": {
+    "x86_64-linux": {
+      "standard": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-amd64-gcc-standard.AppImage",
+        "hash": "sha256-G0D1bJI42WiT1WENXcAJgjNxtoiCGQ7hRAc4mJA6mis="
+      },
+      "pgo": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-amd64-clang-pgo.AppImage",
+        "hash": "sha256-mfB88hA7+pO6K90MbnzV55BOWVZFzvImw73YESTnVFo="
+      },
+      "zen2": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-steamdeck-gcc-standard.AppImage",
+        "hash": "sha256-dGpc0vFLUZ0Te6PBmxLLrxXu9D0698zHQIt8x/oq6Ws="
+      },
+      "zen2-pgo": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-steamdeck-clang-pgo.AppImage",
+        "hash": "sha256-CzNVJwnUlDcMcnNKkJn0w2fKuo34++LsF42WYOkZVoE="
+      },
+      "zen4": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-rog-ally-gcc-standard.AppImage",
+        "hash": "sha256-2Amc7Xrk06T4F2oj338YQ+ns294byR9u26dr7UU3UTc="
+      },
+      "zen4-pgo": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-rog-ally-clang-pgo.AppImage",
+        "hash": "sha256-+sQ05Lnu0i6qztJ09gfLdXCqT0JFl4IfjjJFEVvELNU="
+      }
+    },
+    "aarch64-linux": {
+      "standard": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-aarch64-gcc-standard.AppImage",
+        "hash": "sha256-ZVh/hZij6TYxjEEwkBUyUtg7ulELeSVfmMVWjRZ7Eq8="
+      },
+      "pgo": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-Linux-6a767ac43a-aarch64-clang-pgo.AppImage",
+        "hash": "sha256-jtxbqTh1c1eK3e/QujFxSpzurifZDikQFBey/boMWa8="
+      }
+    },
+    "aarch64-darwin": {
+      "standard": {
+        "url": "https://nightly.eden-emu.dev/v1794272405.6a767ac43a/Eden-macOS-6a767ac43a.dmg",
+        "hash": "sha256-pTMCt08oWuVRA4yXWB2n2dqxyVi5gLKUj+DoxYbKN68="
+      }
+    }
+  }
+}
