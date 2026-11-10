@@ -1,9 +1,13 @@
 {
-  description = "Eden nightly binary packages";
+  description = "Emulator packages for Linux and macOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs.cemu-src = {
+    url = "git+https://github.com/cemu-project/Cemu?ref=main&submodules=1";
+    flake = false;
+  };
 
-  outputs = { nixpkgs, ... }:
+  outputs = { nixpkgs, cemu-src, ... }:
     let
       manifest = builtins.fromJSON (builtins.readFile ./pkgs/eden-nightly-bin/sources.json);
       packageSet = system: pkgs:
@@ -13,10 +17,15 @@
             inherit variant source;
             inherit (manifest) version tag;
           };
-        }) (manifest.sources.${system} or { });
+        }) (manifest.sources.${system} or { }) // {
+          cemu-git = pkgs.callPackage ./pkgs/cemu-git {
+            src = cemu-src;
+            version = "unstable-${builtins.substring 0 8 cemu-src.lastModifiedDate}-${cemu-src.shortRev}";
+          };
+        };
     in
     {
-      packages = nixpkgs.lib.genAttrs (builtins.attrNames manifest.sources) (system:
+      packages = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ] (system:
         let
           packages = packageSet system (import nixpkgs { inherit system; });
         in
