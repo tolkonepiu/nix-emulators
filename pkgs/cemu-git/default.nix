@@ -81,7 +81,11 @@ stdenv.mkDerivation {
     (lib.cmakeBool "ALLOW_PORTABLE" false)
     (lib.cmakeBool "MACOS_BUNDLE" stdenv.hostPlatform.isDarwin)
     (lib.cmakeFeature "EMULATOR_VERSION_PATCH" (builtins.substring 0 8 src.lastModifiedDate))
-  ];
+  ] ++ lib.optionals stdenv.hostPlatform.isDarwin (lib.concatMap (language: [
+    # Clang IPO searches for llvm-ar/ranlib, but Darwin stdenv provides LTO-capable ar/ranlib.
+    (lib.cmakeFeature "CMAKE_${language}_COMPILER_AR" "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}ar")
+    (lib.cmakeFeature "CMAKE_${language}_COMPILER_RANLIB" "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}ranlib")
+  ]) [ "C" "CXX" "OBJC" "OBJCXX" ]);
 
   installPhase = ''
     runHook preInstall
