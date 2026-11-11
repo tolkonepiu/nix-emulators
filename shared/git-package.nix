@@ -5,13 +5,14 @@
   owner,
   repo,
   ref ? "main",
+  domain ? "github.com",
   fetchSubmodules ? false,
 }:
 let
   manifest = builtins.fromJSON (builtins.readFile (../. + "/${manifestPath}"));
-  src = pkgs.fetchFromGitHub {
-    inherit owner repo fetchSubmodules;
-    forceFetchGit = true; # Match nix-prefetch-git even for repositories without submodules.
+  src = pkgs.fetchgit {
+    url = "https://${domain}/${owner}/${repo}.git";
+    inherit fetchSubmodules;
     inherit (manifest) rev hash;
   } // {
     inherit (manifest) lastModifiedDate;
@@ -31,6 +32,7 @@ let
       "--owner" owner
       "--repo" repo
       "--ref" ref
+      "--domain" domain
     ] ++ pkgs.lib.optional fetchSubmodules "--fetch-submodules");
   };
 in
