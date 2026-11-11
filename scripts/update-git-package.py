@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pin a GitHub branch without executing upstream code."""
+"""Pin a Git branch without executing upstream code."""
 
 import argparse
 import base64
@@ -16,16 +16,21 @@ def run(arguments):
     return subprocess.run(arguments, check=True, stdout=subprocess.PIPE, text=True).stdout
 
 
-def source_url(owner, repo, ref):
+def source_url(owner, repo, ref, domain="github.com"):
+    if len(domain) > 253 or not all(
+        re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label)
+        for label in domain.split(".")
+    ):
+        raise ValueError("Invalid source hostname")
     if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", owner):
-        raise ValueError("Invalid GitHub owner")
+        raise ValueError("Invalid repository owner")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", repo) or repo in (".", ".."):
-        raise ValueError("Invalid GitHub repository")
+        raise ValueError("Invalid repository")
     # Let Git validate its own branch syntax, but reject option-like branch names.
     if not ref or ref.startswith("-"):
         raise ValueError("Invalid branch")
     run(["git", "check-ref-format", "refs/heads/" + ref])
-    return f"https://github.com/{owner}/{repo}.git"
+    return f"https://{domain}/{owner}/{repo}.git"
 
 
 def manifest_metadata(metadata, rev):
@@ -55,9 +60,9 @@ def manifest_metadata(metadata, rev):
     }
 
 
-def update(path, owner, repo, ref="main", fetch_submodules=False):
+def update(path, owner, repo, ref="main", fetch_submodules=False, domain="github.com"):
     path = Path(path)
-    url = source_url(owner, repo, ref)
+    url = source_url(owner, repo, ref, domain)
     branch = "refs/heads/" + ref
     resolved = run(["git", "ls-remote", "--exit-code", "--refs", url, branch]).splitlines()
     if len(resolved) != 1:
@@ -94,6 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--owner", required=True)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--ref", default="main")
+    parser.add_argument("--domain", default="github.com")
     parser.add_argument("--fetch-submodules", action="store_true")
     args = parser.parse_args()
-    update(args.manifest, args.owner, args.repo, args.ref, args.fetch_submodules)
+    update(args.manifest, args.owner, args.repo, args.ref, args.fetch_submodules, args.domain)

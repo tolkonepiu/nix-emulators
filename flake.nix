@@ -28,6 +28,14 @@
             repo = "Cemu";
             fetchSubmodules = true;
           };
+          ryubing-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/ryubing-git;
+            manifestPath = "pkgs/ryubing-git/manifest.json";
+            domain = "git.ryujinx.app";
+            owner = "projects";
+            repo = "Ryubing";
+            ref = "master";
+          };
         };
     in
     {
