@@ -24,17 +24,6 @@
     changelog = "https://git.ryujinx.app/projects/Ryubing/commits/commit/${src.rev}";
   };
 } // lib.optionalAttrs (stdenv.hostPlatform.system == "aarch64-linux") {
-  dotnetTestFlags = (old.dotnetTestFlags or [ ]) ++ [
-    "--blame"
-    "--results-directory" "TestResults"
-    "--diag" "vstest.log"
-    "--" "NUnit.NumberOfTestWorkers=0" "NUnit.InternalTraceLevel=Debug"
-  ];
-  failureHook = (old.failureHook or "") + ''
-    echo "=== ARM crash: test sequence ==="
-    find . -type f -name '*_Sequence.xml' -print -exec cat {} \;
-    echo "=== ARM crash: final VSTest diagnostics ==="
-    find . -type f \( -name 'vstest*.log' -o -name 'vstest*.txt' -o -name 'InternalTrace*.log' \) \
-      -print -exec tail -n 100 {} \;
-  '';
+  # Parallel NUnit workers segfault the ARM test host; keep the full suite serial.
+  dotnetTestFlags = (old.dotnetTestFlags or [ ]) ++ [ "--" "NUnit.NumberOfTestWorkers=0" ];
 })
