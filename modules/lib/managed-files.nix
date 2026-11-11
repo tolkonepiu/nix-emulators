@@ -1,4 +1,5 @@
 { config, lib, pkgs, name, files }:
+# shortcut: HM lacks mutable copies; replace this helper when upstream #9921 covers reactivation and cleanup.
 let
   manifest = pkgs.writeText "${name}-managed-files.json" (builtins.toJSON files);
   state = "${config.xdg.stateHome}/nix-emulators/${name}.json";

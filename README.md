@@ -152,20 +152,23 @@ repository is for tests, not an extra module to import into your configuration.
 
   programs.cemu = {
     enable = true;
-    # Complete native XML, including the <content> root.
-    settings = ''
-      <?xml version="1.0" encoding="UTF-8"?>
-      <content>
-        <GamePaths>
-          <Entry>/home/me/Games/Wii U</Entry>
-          <Entry>/mnt/games/Wii U</Entry>
-        </GamePaths>
-        <Audio><TVVolume>50</TVVolume></Audio>
-      </content>
-    '';
-    # Read your native profile, including its <emulated_controller> root.
+    # Contents of <content>; the module supplies the root element.
+    settings = {
+      GamePaths.Entry = [ "/home/me/Games/Wii U" "/mnt/games/Wii U" ];
+      Audio.TVVolume = 50;
+    };
     # controller0 is the active first-player profile; other names are presets.
-    controllerProfiles.controller0 = builtins.readFile ./controller0.xml;
+    controllerProfiles.controller0 = {
+      type = "Wii U GamePad";
+      controller = [{
+        api = "Keyboard";
+        uuid = "Keyboard";
+        mappings.entry = [
+          { mapping = 1; button = 65; }
+          { mapping = 2; button = 66; }
+        ];
+      }];
+    };
     gameProfiles."0005000010101c00" = {
       CPU.cpuMode = "Auto";
       Graphics.graphics_api = 1;
@@ -180,8 +183,8 @@ repository is for tests, not an extra module to import into your configuration.
 | --- | --- | --- |
 | `enable` | Install and configure Eden | Install and configure Cemu |
 | `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` |
-| `settings` | INI section/key attributes; `{ }` leaves settings unmanaged | Complete XML string; `null` leaves settings unmanaged |
-| `controllerProfiles` | Filename stem → INI section/key attributes | Filename stem → complete native XML string |
+| `settings` | INI section/key attributes; `{ }` leaves settings unmanaged | Nix attributes describing the contents of `<content>`; `null` leaves settings unmanaged |
+| `controllerProfiles` | Filename stem → INI section/key attributes | Filename stem → Nix attributes describing the contents of `<emulated_controller>` |
 | `gameProfiles` | — | Lowercase 16-digit title ID → INI section/key attributes |
 | `configDir` | Absolute native configuration directory override | Absolute native configuration/user-data directory override |
 
@@ -206,12 +209,36 @@ Global controller keys have the `player_0_` prefix; keys inside an input profile
 do not. Mapping strings, device identifiers, calibration, motion/UDP settings,
 and other native sections remain user-supplied, without hardware assumptions.
 
-Cemu XML is kept verbatim rather than converted from an attribute set, preserving
-attributes and repeated elements for game paths, controller mappings, graphics
-pack selections, and other native settings. XML is checked for well-formedness
-and the expected root at build time. Start with files exported by your Cemu
-version; the module does not invent device UUIDs or validate every emulator key.
-Game profile options likewise use Cemu's native INI names. Game data, firmware,
+Cemu uses nixpkgs' `pkgs.formats.xml { }` (named `badgerfish`) to serialize
+structured Nix attributes. The module adds the native root elements; do not
+include `content` or `emulated_controller` wrappers yourself. Child elements
+are ordinary keys, lists produce repeated tags, and `"@name"` produces an XML
+attribute. In this formatter, text alongside attributes uses **`"#text"`**, not
+`"$"`. Booleans and numbers serialize as native XML text, `null` emits an empty
+element, and an empty list emits no tags. For example:
+
+```nix
+programs.cemu.settings = {
+  Input.DSUC = { "@host" = "127.0.0.1"; "@port" = 26760; };
+  GraphicPack.Entry = [{
+    "@filename" = "graphicPacks/MyPack/rules.txt";
+    "@disabled" = false;
+    Preset = [{ category = "Resolution"; preset = "1920x1080"; }];
+  }];
+};
+```
+
+Settings from different Nix modules can merge; use lists for repeated elements
+and `lib.mkBefore`/`lib.mkAfter` when list order matters. `settings = { }`
+explicitly manages an empty `<content>` document; `null` leaves it unmanaged.
+Raw XML strings are not accepted. To keep configuration in a separate file,
+use `settings = import ./cemu-settings.nix;` with an attribute set in that file.
+Generated XML is validated by the nixpkgs formatter during the build.
+Use the native element names from your Cemu version: controller `api` and
+`uuid` are child elements, not XML attributes. Copy device identifiers,
+calibration and mapping values from your own native profile; the module does
+not invent them or validate every emulator setting.
+Game profile options use Cemu's native INI names. Game data, firmware,
 keys, saves, shader caches, and graphics-pack assets are not managed by these
 modules. Do not put secrets in settings: generated configuration is public in
 the Nix store.
@@ -240,6 +267,24 @@ under `xdg.stateHome/nix-emulators/`; do not delete this state to reset settings
 To uninstall cleanly, disable and activate **before** removing the module import.
 Removing an import cannot run its cleanup. Backups are not automatically restored.
 Home Manager dry runs do not modify files.
+
+### Why a private writable-file helper?
+
+The pinned Home Manager revision has no `home.file.mutable` option. Its normal
+file manager installs store symlinks, and cleanup deliberately leaves regular
+files alone. `onChange` only runs for generation changes, so it cannot guarantee
+restoring GUI edits when reactivating the same generation. Built-in backup
+options help with initial symlink migration, but do not supply ownership and
+cleanup for writable copies.
+
+[Home Manager PR #9921](https://github.com/nix-community/home-manager/pull/9921)
+implements the needed mutable-copy behavior within those mechanisms, but is
+not merged. We do not require a Home Manager fork or vendor its file manager.
+Until native support is available, one small shared helper handles only the
+missing writable-copy lifecycle: preflight, first-adoption backup, atomic
+replacement and removal of tracked files. Home Manager supplies the activation
+ordering and dry-run signal; nixpkgs supplies the INI/XML serializers. This
+helper can be removed once upstream mutable files cover these requirements.
 
 The path and format choices follow upstream source: Eden's
 [path selection](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/common/fs/path_util.cpp)

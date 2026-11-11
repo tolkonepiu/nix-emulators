@@ -16,15 +16,51 @@ let
     programs.eden.enable = true;
     programs.cemu.enable = true;
   };
-  settingsXML = ''
-    <?xml version="1.0" encoding="UTF-8"?>
-    <content><GamePaths><Entry>/games/雪 &amp; ice</Entry><Entry>/games/two</Entry></GamePaths>
-    <GraphicPack><Entry filename="packs/A&amp;B" enabled="true"/><Entry filename="packs/雪" enabled="false"/></GraphicPack></content>
-  '';
-  controllerXML = ''
-    <emulated_controller><type>Wii U GamePad</type><controller api="SDL" uuid="A&amp;B"><mapping>1</mapping><mapping>2</mapping></controller><controller api="Keyboard"/></emulated_controller>
-  '';
+  settings = {
+    GamePaths.Entry = [ { "#text" = "/games/雪 & ice"; } ];
+    GraphicPack.Entry = [
+      {
+        "@filename" = "packs/A&B";
+        "@disabled" = false;
+        Preset = [
+          { category = "Resolution"; preset = "雪 & <ice>"; }
+          { category = "Another"; preset = "second"; }
+        ];
+      }
+      { "@filename" = "packs/雪"; "@disabled" = true; }
+    ];
+    Input.DSUC = { "@host" = "127.0.0.1"; "@port" = 26760; };
+    mlc_path = null;
+    GameCache.Entry = [ ];
+  };
+  controller = {
+    type = "Wii U GamePad";
+    controller = [ {
+      api = "SDLController";
+      uuid = "A&B";
+      mappings.entry = [
+        { mapping = 1; button = 2; }
+        { mapping = 3; button = 4; }
+      ];
+    } ];
+  };
   enabledOptions = {
+    imports = [ {
+      programs.cemu = {
+        settings = {
+          GamePaths.Entry = lib.mkAfter [ "/games/two" ];
+          Graphic.api = 1;
+        };
+        controllerProfiles.controller0 = {
+          profile = "雪 & ice";
+          controller = lib.mkAfter [ {
+            api = "SDLController";
+            uuid = "second";
+            mappings.entry = [ { mapping = 5; button = 6; } ];
+          } ];
+        };
+      };
+    } ];
     xdg.configHome = "${fixtureHome}/custom-config";
     xdg.stateHome = "${fixtureHome}/custom-state";
     programs.eden = {
@@ -42,8 +78,8 @@ let
     programs.cemu = {
       enable = true;
       package = null;
-      settings = settingsXML;
-      controllerProfiles.controller0 = controllerXML;
+      inherit settings;
+      controllerProfiles.controller0 = controller;
       gameProfiles."00050000101abcde" = {
         General = { name = "雪"; loadSharedLibraries = true; };
         Graphics.graphics_api = 1;
@@ -52,13 +88,14 @@ let
   };
   enabled = configuration enabledOptions;
   removed = configuration (enabledOptions // {
+    imports = [ ];
     programs = {
       eden = enabledOptions.programs.eden // {
         settings = { UI.theme = "updated"; };
         controllerProfiles = { };
       };
       cemu = enabledOptions.programs.cemu // {
-        settings = "<content><changed>true</changed></content>";
+        settings = { changed = true; };
         controllerProfiles = { };
         gameProfiles = { };
       };
@@ -74,12 +111,27 @@ let
     programs.eden = { enable = true; package = pkgs.hello; configDir = "${fixtureHome}/eden-override"; };
     programs.cemu = { enable = true; package = pkgs.hello; configDir = "${fixtureHome}/cemu-override"; };
   };
+  emptySettings = configuration {
+    programs.cemu = {
+      enable = true;
+      package = null;
+      configDir = "${enabled.config.programs.cemu.configDir}/empty-check";
+      settings = { };
+    };
+  };
+  unmanagedSettings = configuration {
+    programs.cemu = {
+      enable = true;
+      package = null;
+      configDir = "${enabled.config.programs.cemu.configDir}/empty-check";
+    };
+  };
   rejects = extra: !(builtins.tryEval (configuration extra).activationPackage.drvPath).success;
   badProfile = name: program: rejects {
     programs.${program} = {
       enable = true;
       package = null;
-      controllerProfiles.${name} = if program == "eden" then { } else controllerXML;
+      controllerProfiles.${name} = if program == "eden" then { } else controller;
     };
   };
   checks = [
@@ -103,6 +155,17 @@ let
     (builtins.isString (evaluate modules.cemu { }).activationPackage.drvPath)
     (builtins.isString enabled.activationPackage.drvPath)
     (builtins.isString disabled.activationPackage.drvPath)
+    (defaults.config.programs.cemu.settings == null)
+    (emptySettings.config.programs.cemu.settings == { })
+    (enabled.config.programs.cemu.settings.GamePaths.Entry == [ { "#text" = "/games/雪 & ice"; } "/games/two" ])
+    (enabled.config.programs.cemu.settings.Graphic.api == 1)
+    (enabled.config.programs.cemu.controllerProfiles.controller0.type == "Wii U GamePad")
+    (enabled.config.programs.cemu.controllerProfiles.controller0.profile == "雪 & ice")
+    (builtins.length enabled.config.programs.cemu.controllerProfiles.controller0.controller == 2)
+    (rejects { programs.cemu = { enable = true; settings = "<content/>"; }; })
+    (rejects { programs.cemu = { enable = true; controllerProfiles.raw = "<emulated_controller/>"; }; })
+    (rejects { programs.cemu = { enable = true; settings.invalid = value: value; }; })
+    (rejects { programs.cemu = { enable = true; controllerProfiles.invalid.type = value: value; }; })
     (lib.all (name: badProfile name "eden" && badProfile name "cemu") [ "" "." ".." "../escape" "a/b" "a\\b" ])
     (lib.all (program: rejects { programs.${program} = { enable = true; package = null; configDir = "relative"; }; }) [ "eden" "cemu" ])
     (lib.all (title: rejects { programs.cemu = { enable = true; package = null; gameProfiles.${title} = { }; }; })
@@ -110,7 +173,7 @@ let
   ];
   activation = cfg: lib.concatMapStringsSep "\n" (name: cfg.config.home.activation.${name}.data) [ "eden" "cemu" ];
   scripts = lib.mapAttrs (name: cfg: pkgs.writeText "hm-${name}.sh" (activation cfg)) {
-    inherit enabled removed off;
+    inherit enabled removed off emptySettings unmanagedSettings;
   };
 in
 {
@@ -119,6 +182,8 @@ in
     enabledScript = scripts.enabled;
     removedScript = scripts.removed;
     offScript = scripts.off;
+    emptySettingsScript = scripts.emptySettings;
+    unmanagedSettingsScript = scripts.unmanagedSettings;
     cemuDir = lib.removePrefix fixtureHome enabled.config.programs.cemu.configDir;
   } ''
     export HOME="$TMPDIR/home"
@@ -193,11 +258,25 @@ in
     assert root.tag == "content"
     assert [node.text for node in root.findall("GamePaths/Entry")] == ["/games/雪 & ice", "/games/two"]
     assert [node.attrib for node in root.findall("GraphicPack/Entry")] == [
-        {"filename": "packs/A&B", "enabled": "true"}, {"filename": "packs/雪", "enabled": "false"}]
+        {"filename": "packs/A&B", "disabled": "false"}, {"filename": "packs/雪", "disabled": "true"}]
+    presets = root.findall("GraphicPack/Entry/Preset")
+    assert all(node.attrib == {} for node in presets)
+    assert [(node.findtext("category"), node.findtext("preset")) for node in presets] == [
+        ("Resolution", "雪 & <ice>"), ("Another", "second")]
+    assert root.find("Input/DSUC").attrib == {"host": "127.0.0.1", "port": "26760"}
+    assert root.findtext("Graphic/api") == "1"
+    assert root.find("mlc_path") is not None and root.find("mlc_path").text is None
+    assert root.find("GameCache/Entry") is None
     root = ET.parse(cemu / "controllerProfiles/controller0.xml").getroot()
     assert root.tag == "emulated_controller" and len(root.findall("controller")) == 2
-    assert root.find("controller").attrib["uuid"] == "A&B"
-    assert [node.text for node in root.findall("controller/mapping")] == ["1", "2"]
+    assert root.findtext("type") == "Wii U GamePad"
+    assert root.findtext("profile") == "雪 & ice"
+    controllers = root.findall("controller")
+    assert all(node.attrib == {} and node.findtext("api") == "SDLController" for node in controllers)
+    assert [node.findtext("uuid") for node in controllers] == ["A&B", "second"]
+    assert [[(entry.findtext("mapping"), entry.findtext("button"))
+             for entry in node.findall("mappings/entry")] for node in controllers] == [
+        [("1", "2"), ("3", "4")], [("5", "6")]]
     game = ini(cemu / "gameProfiles/00050000101abcde.ini")
     assert game["General"]["name"] == "雪" and game["General"]["loadSharedLibraries"] == "true"
     assert game["Graphics"]["graphics_api"] == "1"
@@ -225,6 +304,15 @@ in
         assert (directory / "unmanaged").read_text() == "keep"
     for path in [eden / "qt-config.ini", cemu / "settings.xml"]:
         assert Path(str(path) + ".hm-backup").read_text() == "original"
+    empty_settings = cemu / "empty-check/settings.xml"
+    empty_settings.parent.mkdir(parents=True, exist_ok=True)
+    empty_settings.write_text("unmanaged")
+    activate("unmanagedSettings")
+    assert empty_settings.read_text() == "unmanaged"
+    activate("emptySettings")
+    root = ET.parse(empty_settings).getroot()
+    assert root.tag == "content" and len(root) == 0 and not root.attrib
+    assert Path(str(empty_settings) + ".hm-backup").read_text() == "unmanaged"
     PY
     touch "$out"
   '';

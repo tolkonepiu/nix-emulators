@@ -3,30 +3,12 @@
 let
   cfg = config.programs.cemu;
   ini = pkgs.formats.ini { };
-  generateXML = name: root: text:
-    pkgs.runCommand name {
-      nativeBuildInputs = [ pkgs.python3 ];
-      passAsFile = [ "text" ];
-      inherit text;
-      expectedRoot = root;
-    } ''
-      python - <<'PY'
-      import os
-      import shutil
-      import xml.etree.ElementTree as ET
-
-      source = os.environ["textPath"]
-      root = ET.parse(source).getroot()
-      if root.tag != os.environ["expectedRoot"]:
-          raise ValueError(f"Expected XML root <{os.environ['expectedRoot']}>, got <{root.tag}>")
-      shutil.copyfile(source, os.environ["out"])
-      PY
-    '';
+  xml = pkgs.formats.xml { };
   files = lib.optionalAttrs (cfg.settings != null) {
-    "${cfg.configDir}/settings.xml" = generateXML "cemu-settings.xml" "content" cfg.settings;
-  } // lib.mapAttrs' (name: text: lib.nameValuePair
+    "${cfg.configDir}/settings.xml" = xml.generate "cemu-settings.xml" { content = cfg.settings; };
+  } // lib.mapAttrs' (name: settings: lib.nameValuePair
     "${cfg.configDir}/controllerProfiles/${name}.xml"
-    (generateXML "cemu-controller-${name}.xml" "emulated_controller" text)
+    (xml.generate "cemu-controller-${name}.xml" { emulated_controller = settings; })
   ) cfg.controllerProfiles // lib.mapAttrs' (title: settings: lib.nameValuePair
     "${cfg.configDir}/gameProfiles/${title}.ini"
     (ini.generate "cemu-game-${title}.ini" settings)
@@ -53,25 +35,30 @@ in
     };
 
     settings = lib.mkOption {
-      type = lib.types.nullOr lib.types.lines;
+      type = lib.types.nullOr xml.type;
       default = null;
       description = ''
-        Complete native settings.xml document with a <content> root, or null
-        to leave settings unmanaged. Raw XML preserves attributes, repeated
-        elements, all settings categories, and graphics pack selections.
+        Structured contents of settings.xml; the <content> root is added
+        automatically. Use attribute sets for child elements, lists for repeated
+        children, @name keys for XML attributes, and #text for element text
+        alongside attributes. Null leaves settings unmanaged; {} manages an
+        empty <content> root. Raw XML strings are not accepted.
         Managed files are replaced with writable copies at each activation;
         initial originals are backed up by the activation helper.
       '';
     };
 
     controllerProfiles = lib.mkOption {
-      type = lib.types.attrsOf lib.types.lines;
+      type = lib.types.attrsOf xml.type;
       default = { };
       description = ''
-        Complete native XML documents with an <emulated_controller> root,
-        keyed by filename stem without .xml. Use controller0 for the active
-        player-one controller, or a named profile. Repeated controller and
-        mapping elements and attributes are preserved verbatim.
+        Structured profile contents keyed by filename stem without .xml; each
+        <emulated_controller> root is added automatically. Use controller0 for
+        the active player-one controller, or a named profile. Attribute sets
+        represent child elements, lists repeat children, @name keys represent
+        XML attributes, and #text holds text alongside attributes. Native
+        controller entries use api, uuid, and mappings.entry child elements.
+        Raw XML strings are not accepted.
       '';
     };
 
