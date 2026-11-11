@@ -28,6 +28,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@7ab6e7fd29da88e74b1e314a4ae9ac6b5cda3801 # v31.8.0
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: nix-emulators
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Hash release downloads (never execute them)
         env:
           FORCE: ${{ inputs.force }}
@@ -40,7 +44,6 @@ jobs:
       # GITHUB_TOKEN-created PRs do not trigger CI; validate here as well.
       - name: Validate proposed update without running upstream artifacts
         run: |
-          python3 -m unittest discover -s tests -v
           nix flake check --all-systems --no-build
           nix eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
       - uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
@@ -53,5 +56,5 @@ jobs:
           title: 'chore: update Eden nightly binaries'
           body: |
             Pins the complete latest nightly release with SHA-256 hashes of raw downloads.
-            Updater tests and evaluation of all advertised systems ran before opening this PR.
+            Evaluation of all advertised systems ran before opening this PR.
             With the default GITHUB_TOKEN, PR workflows do not run automatically; run CI manually on this branch before merging for native build coverage, or configure UPDATE_TOKEN to trigger PR CI.

@@ -1,8 +1,55 @@
 # nix-emulators
 
-A collection of emulator packages for Nix. Currently provides prebuilt
-[Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases) binaries,
-pinned to a release URL and SHA-256 hash rather than a moving `latest` download.
+A collection of emulator packages for Nix: prebuilt
+[Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases) binaries and
+[Cemu](https://github.com/cemu-project/Cemu) built from a pinned commit of `main`.
+Downloads and source trees are content-hash pinned, never unpinned `latest` builds.
+
+## Binary cache
+
+CI publishes builds to the public [nix-emulators Cachix cache](https://nix-emulators.cachix.org).
+Downloading from it does not require a token. Enable it before building:
+
+```sh
+nix run nixpkgs#cachix -- use nix-emulators
+```
+
+On NixOS or nix-darwin, configure it declaratively instead:
+
+```nix
+nix.settings = {
+  extra-substituters = [ "https://nix-emulators.cachix.org" ];
+  extra-trusted-public-keys = [
+    "nix-emulators.cachix.org-1:8lg5Ku12bMegHXq3KWenzzaR4jnv3ddT5W4r75nyCPA="
+  ];
+};
+```
+
+Apply your system configuration afterwards. Enabling the cache means trusting
+this project's signed binaries; the default Nix cache remains enabled.
+Only outputs already published by CI can be downloaded. Different nixpkgs pins
+or package options may still require local builds.
+
+## Cemu git
+
+`cemu-git` builds upstream `main` from source for Linux (x86_64 and aarch64) and
+macOS (Apple Silicon). The commit, recursive source hash and version are pinned
+in `pkgs/cemu-git/manifest.json`; building does not silently update them.
+Versions use `unstable-YYYYMMDDHHMMSS-<rev>` with the commit's UTC timestamp.
+Upstream considers macOS support experimental.
+
+```sh
+nix run github:tolkonepiu/nix-emulators#cemu-git
+nix profile add github:tolkonepiu/nix-emulators#cemu-git
+# Build the checked-out version locally:
+nix build .#cemu-git
+```
+
+The package is also available through the overlay as `pkgs.cemu-git` and can be
+selected in NixOS `environment.systemPackages` or Home Manager `home.packages`
+using the same input setup shown below for Eden. The executable is `cemu`.
+Eden remains the default.
+On macOS the bundle is installed under `Applications/Cemu.app` in the package.
 
 ## Eden packages
 
@@ -18,7 +65,7 @@ pinned to a release URL and SHA-256 hash rather than a moving `latest` download.
 `zen2` selects upstream's Steam Deck build; `zen4` selects its ROG Ally build.
 Both have standard and profile-guided optimization (PGO) versions. Selection
 is explicit: the flake never detects your CPU or silently enables PGO.
-The default is the standard build for the selected system.
+The default Eden package is the standard build for the selected system.
 
 The generic x86_64 builds target modern CPUs (Ryzen / Intel Haswell or newer);
 upstream's separate legacy builds are not packaged. Do not install Zen-specific
@@ -26,7 +73,7 @@ builds on incompatible CPUs. Choose one variant per profile: they all provide
 the `eden` executable and the same desktop application.
 
 The current macOS DMG contains an **arm64-only** `eden.app`, not a universal
-binary. Intel Macs are not supported. Upstream labels macOS builds experimental
+binary. Upstream labels macOS builds experimental
 and warns about graphical glitches and crashes. Nix does not remove macOS
 security checks; allow the application in Privacy & Security only if you trust it.
 
@@ -74,6 +121,42 @@ environment.systemPackages = [ pkgs.eden-nightly-bin-zen2-pgo ];
 
 ## Automatic updates
 
+### Git source packages
+
+The **Update git packages** workflow runs daily at **06:43 UTC** and can also be
+started manually. It discovers packages exposing an `updateScript`, resolves
+their upstream branches and hashes the exact commits, including submodules when
+requested. Only package manifests change; the nixpkgs pin stays unchanged.
+Updates are proposed on `automation/git-packages` and are not auto-merged.
+Failed downloads or invalid metadata leave the previous manifest intact.
+To update Cemu locally from the repository root:
+
+```sh
+nix run .#cemu-git.updateScript
+nix flake check --all-systems --no-build
+nix build .#cemu-git
+```
+
+### Add another git package
+
+The shared scheme is inspired by [Nyx's git packages](https://github.com/chaotic-cx/nyx).
+Add a derivation under `pkgs/<name>-git` accepting `src` and `version`, then
+generate its first manifest with the common updater:
+
+```sh
+nix shell --inputs-from . nixpkgs#git nixpkgs#nix-prefetch-git nixpkgs#python3 -c \
+  python3 scripts/update-git-package.py \
+  --manifest pkgs/example-git/manifest.json --owner OWNER --repo REPO --ref main
+```
+
+Add `--fetch-submodules` if required. Register the package in `flake.nix` using
+`shared/git-package.nix`, following the Cemu entry: package path, manifest path,
+owner/repository, branch and submodule setting. The helper supplies the pinned
+source/version and `updateScript`; the workflow discovers it automatically.
+No new flake input, updater script or workflow is needed for each package.
+
+### Eden
+
 The **Update Eden nightly** workflow runs daily at **06:23 UTC** and can also be
 started manually. It reads the newest published release's Markdown download
 links (the upstream API currently has an empty `assets` list), requires the
@@ -89,17 +172,16 @@ python3 scripts/update-eden-nightly.py
 # Re-download and rehash even when the release tag is unchanged:
 python3 scripts/update-eden-nightly.py --force
 
-python3 -m unittest discover -s tests -v
 nix flake check --all-systems --no-build
 nix eval --json .#packages --apply \
   'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
 nix build .#eden-nightly-bin .#eden-nightly-bin-zen2-pgo
 ```
 
-CI builds all native variants on Linux x86_64 and macOS Apple Silicon. Linux
-aarch64 derivations are evaluated, but need an aarch64 builder for native build
-and runtime coverage. Building a package does not verify game compatibility,
-GPU behavior, or optimized CPU variants on their target hardware.
+CI builds the native packages on Linux x86_64/aarch64 and macOS Apple Silicon.
+Building a package does not verify game compatibility, GPU behavior, or optimized
+CPU variants on their target hardware.
 
-Eden is GPL-3.0-or-later. These packages redistribute upstream binaries, not
+Eden is GPL-3.0-or-later. Its packages redistribute upstream binaries, not
 source builds; their performance and compatibility follow upstream's artifacts.
+Cemu is MPL-2.0 and is built from source.
