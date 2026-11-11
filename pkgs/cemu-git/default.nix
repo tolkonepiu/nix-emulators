@@ -20,30 +20,25 @@
   moltenvk,
 }:
 let
-  # Cemu does not use wxWebView; avoid pulling in WebKitGTK on Linux.
-  wxwidgets = if stdenv.hostPlatform.isLinux
-    then wxwidgets_3_3.override { withWebKit = false; }
-    else wxwidgets_3_3;
+  # Compare names without evaluating fmt_9, which is marked broken on Darwin.
+  oldDeps = [ "sdl2-compat" "fmt" "wxwidgets" ];
+  newDeps = [ fmt_12 sdl3 wxwidgets_3_3 ];
 in
-(cemu.override {
-  SDL2 = sdl3;
-  fmt_9 = fmt_12;
-  wxwidgets_3_2 = wxwidgets;
-}).overrideAttrs (finalAttrs: old: {
+cemu.overrideAttrs (finalAttrs: old: {
   pname = "cemu-git";
   inherit src version;
 
   nativeBuildInputs = lib.filter (input: !(builtins.elem (lib.getName input) (
-    lib.optional (!stdenv.hostPlatform.isx86_64) "nasm"
+    oldDeps ++ lib.optional (!stdenv.hostPlatform.isx86_64) "nasm"
     ++ lib.optionals stdenv.hostPlatform.isDarwin [
       "add-driver-runpath-hook" "wrap-gapps-hook" "wayland-scanner"
     ]
-  ))) old.nativeBuildInputs;
+  ))) old.nativeBuildInputs ++ [ sdl3 wxwidgets_3_3 ];
   buildInputs = lib.filter (input: !(builtins.elem (lib.getName input) (
-    [ "imgui" ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    oldDeps ++ [ "imgui" ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
       "gtk+3" "libxrender" "wayland" "bluez"
     ]
-  ))) old.buildInputs ++ [ openssl spirv-tools zlib zstd ]
+  ))) old.buildInputs ++ newDeps ++ [ openssl spirv-tools zlib zstd ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [ gamemode libglvnd libx11 wayland-protocols ]
     ++ lib.optional stdenv.hostPlatform.isDarwin moltenvk;
 
@@ -101,7 +96,7 @@ in
     tests = old.passthru.tests // {
       version = testers.testVersion {
         package = finalAttrs.finalPackage;
-        version = src.shortRev;
+        version = builtins.substring 0 8 src.lastModifiedDate;
       };
     };
   };
