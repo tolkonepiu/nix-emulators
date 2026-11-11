@@ -1,65 +1,46 @@
 {
   lib,
   stdenv,
+  cemu,
   src,
   version,
-  cmake,
-  ninja,
-  pkg-config,
-  nasm,
-  boost,
-  cubeb,
-  curl,
   fmt_12,
-  glm,
-  glslang,
-  hidapi,
-  libpng,
   libusb1,
-  libzip,
   openssl,
-  pugixml,
-  rapidjson,
   sdl3,
   spirv-tools,
+  testers,
   wxwidgets_3_3,
-  zarchive,
   zlib,
   zstd,
-  bluez,
   gamemode,
-  gtk3,
   libglvnd,
   libx11,
-  libxrender,
-  vulkan-loader,
-  wayland,
   wayland-protocols,
-  wayland-scanner,
-  wrapGAppsHook3,
   moltenvk,
 }:
 let
-  # Cemu does not use wxWebView; avoid pulling in WebKitGTK on Linux.
-  wxwidgets = if stdenv.hostPlatform.isLinux
-    then wxwidgets_3_3.override { withWebKit = false; }
-    else wxwidgets_3_3;
+  # Compare names without evaluating fmt_9, which is marked broken on Darwin.
+  oldDeps = [ "sdl2-compat" "fmt" "wxwidgets" ];
+  newDeps = [ fmt_12 sdl3 wxwidgets_3_3 ];
 in
-stdenv.mkDerivation {
+cemu.overrideAttrs (finalAttrs: old: {
   pname = "cemu-git";
   inherit src version;
 
-  nativeBuildInputs = [ cmake ninja pkg-config wxwidgets ]
-    ++ lib.optional stdenv.hostPlatform.isx86_64 nasm
-    ++ lib.optionals stdenv.hostPlatform.isLinux [ wrapGAppsHook3 wayland-scanner ];
-  buildInputs = [
-    boost cubeb curl fmt_12 glm glslang hidapi libpng libusb1 libzip openssl
-    pugixml rapidjson sdl3 spirv-tools wxwidgets zarchive zlib zstd
-  ] ++ lib.optionals stdenv.hostPlatform.isLinux [
-    bluez gamemode gtk3 libglvnd libx11 libxrender vulkan-loader wayland wayland-protocols
-  ] ++ lib.optional stdenv.hostPlatform.isDarwin moltenvk;
-
-  strictDeps = true;
+  nativeBuildInputs = lib.filter (input: !(builtins.elem (lib.getName input) (
+    oldDeps ++ lib.optional (!stdenv.hostPlatform.isx86_64) "nasm"
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      "add-driver-runpath-hook" "wrap-gapps-hook" "wayland-scanner"
+    ]
+  ))) old.nativeBuildInputs ++ [ sdl3 wxwidgets_3_3 ];
+  buildInputs = lib.filter (input: !(builtins.elem (lib.getName input) (
+    oldDeps ++ [ "imgui" ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      "gtk+3" "libxrender" "wayland" "bluez"
+    ]
+  ))) old.buildInputs ++ newDeps ++ [ openssl spirv-tools zlib zstd ]
+    ++ lib.optionals stdenv.hostPlatform.isLinux [ gamemode libglvnd libx11 wayland-protocols ]
+    ++ lib.optional stdenv.hostPlatform.isDarwin moltenvk;
 
   patches = lib.optionals stdenv.hostPlatform.isDarwin [ ./static-registry-lifetime.patch ]
     ++ lib.optionals (stdenv.hostPlatform.system == "aarch64-linux") [ ./neon-index-types.patch ];
@@ -84,8 +65,14 @@ stdenv.mkDerivation {
       --replace-fail 'dlopen("libMoltenVK.dylib"' 'dlopen("${moltenvk}/lib/libMoltenVK.dylib"'
   '';
 
-  cmakeFlags = [
-    (lib.cmakeBool "ENABLE_VCPKG" false)
+  # Release setup parses a tag version and replaces the bundled imgui; neither fits git.
+  preConfigure = "";
+
+  cmakeFlags = lib.subtractLists [
+    (lib.cmakeBool "PORTABLE" false)
+    (lib.cmakeBool "ENABLE_FERAL_GAMEMODE" true)
+  ] old.cmakeFlags ++ [
+    (lib.cmakeBool "ENABLE_FERAL_GAMEMODE" stdenv.hostPlatform.isLinux)
     (lib.cmakeBool "ALLOW_PORTABLE" false)
     (lib.cmakeBool "MACOS_BUNDLE" stdenv.hostPlatform.isDarwin)
     (lib.cmakeFeature "EMULATOR_VERSION_PATCH" (builtins.substring 0 8 src.lastModifiedDate))
@@ -95,34 +82,36 @@ stdenv.mkDerivation {
     (lib.cmakeFeature "CMAKE_${language}_COMPILER_RANLIB" "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}ranlib")
   ]) [ "C" "CXX" "OBJC" "OBJCXX" ]);
 
-  installPhase = ''
-    runHook preInstall
-  '' + (if stdenv.hostPlatform.isDarwin then ''
-    mkdir -p "$out/Applications" "$out/bin"
-    cp -R ../bin/Cemu_release.app "$out/Applications/Cemu.app"
-    ln -s "$out/Applications/Cemu.app/Contents/MacOS/Cemu_release" "$out/bin/cemu"
-  '' else ''
-    install -Dm755 ../bin/Cemu_release "$out/bin/Cemu"
-    ln -s Cemu "$out/bin/cemu"
-    mkdir -p "$out/share/Cemu" "$out/share/applications"
+  postInstall = lib.optionalString stdenv.hostPlatform.isLinux ''
+    mkdir -p "$out/share/Cemu"
     cp -R ../bin/gameProfiles ../bin/resources "$out/share/Cemu/"
-    substitute ../dist/linux/info.cemu.Cemu.desktop "$out/share/applications/info.cemu.Cemu.desktop" \
-      --replace-fail 'Exec=Cemu' "Exec=$out/bin/cemu"
-    install -Dm644 ../dist/linux/info.cemu.Cemu.metainfo.xml -t "$out/share/metainfo"
-    install -Dm644 ../src/resource/logo_icon.png "$out/share/icons/hicolor/128x128/apps/info.cemu.Cemu.png"
-  '') + ''
-    runHook postInstall
   '';
 
   preFixup = lib.optionalString stdenv.hostPlatform.isLinux ''
-    gappsWrapperArgs+=(--prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ vulkan-loader libglvnd ]}")
+    ${old.preFixup}
+    gappsWrapperArgs+=(--prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [ libglvnd ]}")
   '';
 
-  meta = {
+  passthru = old.passthru // {
+    tests = old.passthru.tests // {
+      version = testers.testVersion {
+        package = finalAttrs.finalPackage;
+        version = builtins.substring 0 8 src.lastModifiedDate;
+      };
+    };
+  };
+
+  meta = old.meta // {
     description = "Wii U emulator built from upstream main";
     homepage = "https://github.com/cemu-project/Cemu";
-    license = lib.licenses.mpl20;
-    mainProgram = "cemu";
     platforms = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
   };
-}
+} // lib.optionalAttrs stdenv.hostPlatform.isDarwin {
+  installPhase = ''
+    runHook preInstall
+    mkdir -p "$out/Applications" "$out/bin"
+    cp -R ../bin/Cemu_release.app "$out/Applications/Cemu.app"
+    ln -s "$out/Applications/Cemu.app/Contents/MacOS/Cemu_release" "$out/bin/cemu"
+    runHook postInstall
+  '';
+})

@@ -1,0 +1,40 @@
+Do not destroy a joinable output-pump thread when libarchive close fails.
+Finish the existing cleanup before propagating the archive error.
+
+--- a/src/utility/filesystem_extractor.cpp
++++ b/src/utility/filesystem_extractor.cpp
+@@ -28,6 +28,7 @@
+ 
+ #include <array>
+ #include <condition_variable>
++#include <exception>
+ #include <memory>
+ #include <mutex>
+ #include <thread>
+@@ -253,9 +254,14 @@
+       a_reg_.clear();
+     }
+ 
++    std::exception_ptr close_error;
+     if (a_) {
+       LOG_DEBUG << "closing archive";
+-      check_result(a_, ::archive_write_close(a_.get()));
++      try {
++        check_result(a_, ::archive_write_close(a_.get()));
++      } catch (...) {
++        close_error = std::current_exception();
++      }
+       LOG_TRACE << "freeing archive";
+       a_.reset();
+     }
+@@ -271,6 +277,10 @@
+       LOG_TRACE << "closing pipe[0]";
+       closefd(pipefd_[0]);
+     }
++
++    if (close_error) {
++      std::rethrow_exception(close_error);
++    }
+   }
+ 
+   bool
