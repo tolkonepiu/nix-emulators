@@ -1,57 +1,10 @@
 # nix-emulators
 
-A collection of emulator packages for Nix: prebuilt
-[Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases) binaries and
-[Cemu](https://github.com/cemu-project/Cemu) built from a pinned commit of `main`.
-Downloads and source trees are content-hash pinned, never unpinned `latest` builds.
+[Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases) and
+[Cemu](https://github.com/cemu-project/Cemu) packages and Home Manager modules
+for Linux and macOS.
 
-## Binary cache
-
-CI publishes builds to the public [nix-emulators Cachix cache](https://nix-emulators.cachix.org).
-Downloading from it does not require a token. Enable it before building:
-
-```sh
-nix run nixpkgs#cachix -- use nix-emulators
-```
-
-On NixOS or nix-darwin, configure it declaratively instead:
-
-```nix
-nix.settings = {
-  extra-substituters = [ "https://nix-emulators.cachix.org" ];
-  extra-trusted-public-keys = [
-    "nix-emulators.cachix.org-1:8lg5Ku12bMegHXq3KWenzzaR4jnv3ddT5W4r75nyCPA="
-  ];
-};
-```
-
-Apply your system configuration afterwards. Enabling the cache means trusting
-this project's signed binaries; the default Nix cache remains enabled.
-Only outputs already published by CI can be downloaded. Different nixpkgs pins
-or package options may still require local builds.
-
-## Cemu git
-
-`cemu-git` builds upstream `main` from source for Linux (x86_64 and aarch64) and
-macOS (Apple Silicon). The commit, recursive source hash and version are pinned
-in `pkgs/cemu-git/manifest.json`; building does not silently update them.
-Versions use `unstable-YYYYMMDDHHMMSS-<rev>` with the commit's UTC timestamp.
-Upstream considers macOS support experimental.
-
-```sh
-nix run github:tolkonepiu/nix-emulators#cemu-git
-nix profile add github:tolkonepiu/nix-emulators#cemu-git
-# Build the checked-out version locally:
-nix build .#cemu-git
-```
-
-The package is also available through the overlay as `pkgs.cemu-git` and can be
-selected in NixOS `environment.systemPackages` or Home Manager `home.packages`
-using the same input setup shown below for Eden. The executable is `cemu`.
-Eden remains the default.
-On macOS the bundle is installed under `Applications/Cemu.app` in the package.
-
-## Eden packages
+## Packages
 
 | Package | Linux x86_64 | Linux aarch64 | macOS Apple Silicon |
 | --- | :---: | :---: | :---: |
@@ -61,38 +14,17 @@ On macOS the bundle is installed under `Applications/Cemu.app` in the package.
 | `eden-nightly-bin-zen2-pgo` | ✓ | — | — |
 | `eden-nightly-bin-zen4` | ✓ | — | — |
 | `eden-nightly-bin-zen4-pgo` | ✓ | — | — |
-
-`zen2` selects upstream's Steam Deck build; `zen4` selects its ROG Ally build.
-Both have standard and profile-guided optimization (PGO) versions. Selection
-is explicit: the flake never detects your CPU or silently enables PGO.
-The default Eden package is the standard build for the selected system.
-
-The generic x86_64 builds target modern CPUs (Ryzen / Intel Haswell or newer);
-upstream's separate legacy builds are not packaged. Do not install Zen-specific
-builds on incompatible CPUs. Choose one variant per profile: they all provide
-the `eden` executable and the same desktop application.
-
-The current macOS DMG contains an **arm64-only** `eden.app`, not a universal
-binary. Upstream labels macOS builds experimental
-and warns about graphical glitches and crashes. Nix does not remove macOS
-security checks; allow the application in Privacy & Security only if you trust it.
+| `cemu-git` | ✓ | ✓ | ✓ |
 
 ### Run or install
 
 ```sh
-# Standard build for your system
 nix run github:tolkonepiu/nix-emulators#eden-nightly-bin
+nix run github:tolkonepiu/nix-emulators#cemu-git
 
-# Steam Deck / Zen 2, with PGO
-nix run github:tolkonepiu/nix-emulators#eden-nightly-bin-zen2-pgo
-
-# Install instead of running once
-nix profile add github:tolkonepiu/nix-emulators#eden-nightly-bin-zen2-pgo
+nix profile add github:tolkonepiu/nix-emulators#eden-nightly-bin
+nix profile add github:tolkonepiu/nix-emulators#cemu-git
 ```
-
-Linux packages include a desktop entry and icon. On macOS the bundle is installed
-under the package's `Applications/eden.app`, with an `eden` command-line launcher.
-For local builds use `nix build .#eden-nightly-bin` (or another name above).
 
 ### NixOS / Home Manager
 
@@ -103,60 +35,50 @@ inputs.nix-emulators.url = "github:tolkonepiu/nix-emulators";
 inputs.nix-emulators.inputs.nixpkgs.follows = "nixpkgs";
 ```
 
-Pass `inputs` to your configuration, then select a package directly:
+Pass `inputs` to your configuration and select packages:
 
 ```nix
-environment.systemPackages = [
-  inputs.nix-emulators.packages.${pkgs.stdenv.hostPlatform.system}.eden-nightly-bin-zen2-pgo
+environment.systemPackages = with inputs.nix-emulators.packages.${pkgs.stdenv.hostPlatform.system}; [
+  eden-nightly-bin
+  cemu-git
 ];
 ```
 
-For Home Manager use the same package in `home.packages`. Alternatively, apply
-the overlay and select the package from `pkgs`:
+For Home Manager, use `home.packages` instead. Alternatively, use the overlay:
 
 ```nix
 nixpkgs.overlays = [ inputs.nix-emulators.overlays.default ];
-environment.systemPackages = [ pkgs.eden-nightly-bin-zen2-pgo ];
+environment.systemPackages = [ pkgs.eden-nightly-bin pkgs.cemu-git ];
 ```
 
 ## Home Manager modules
 
-Import either `homeManagerModules.eden` or `homeManagerModules.cemu`, or
-`homeManagerModules.default` for both. No overlay, NixOS, Jovian, Steam Deck,
-or systemd/tmpfiles integration is required. Modules use your Home Manager
-`pkgs` to build the default packages.
+Import `homeManagerModules.default` for both emulators, or
+`homeManagerModules.eden` / `homeManagerModules.cemu` individually:
 
 ```nix
-{ inputs, pkgs, ... }:
+{ inputs, ... }:
 {
   imports = [ inputs.nix-emulators.homeManagerModules.default ];
 
   programs.eden = {
     enable = true;
-    # Optional; defaults to the generic eden-nightly-bin package.
-    package = inputs.nix-emulators.packages.${pkgs.stdenv.hostPlatform.system}.eden-nightly-bin;
     settings = {
-      Renderer = {
-        backend = 1;
-        use_disk_shader_cache = true;
-      };
+      Renderer.backend = 1;
       Controls.player_0_profile_name = "MyController";
     };
     controllerProfiles.MyController.Controls = {
-      # Replace with your controller's native Eden mapping strings.
+      # Replace with your controller's native mapping.
       button_a = "engine:sdl,button:0";
-      motion_enabled = true;
     };
   };
 
   programs.cemu = {
     enable = true;
-    # Contents of <content>; the module supplies the root element.
     settings = {
-      GamePaths.Entry = [ "/home/me/Games/Wii U" "/mnt/games/Wii U" ];
+      GamePaths.Entry = [ "/home/me/Games/Wii U" ];
       Audio.TVVolume = 50;
     };
-    # controller0 is the active first-player profile; other names are presets.
     controllerProfiles.controller0 = {
       type = "Wii U GamePad";
       controller = [{
@@ -176,166 +98,41 @@ or systemd/tmpfiles integration is required. Modules use your Home Manager
 }
 ```
 
-### Options and native formats
-
 | Option | Eden | Cemu |
 | --- | --- | --- |
-| `enable` | Install and configure Eden | Install and configure Cemu |
 | `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` |
-| `settings` | INI section/key attributes; `{ }` leaves settings unmanaged | Nix attributes describing the contents of `<content>`; `null` leaves settings unmanaged |
-| `controllerProfiles` | Filename stem → INI section/key attributes | Filename stem → Nix attributes describing the contents of `<emulated_controller>` |
-| `gameProfiles` | — | Lowercase 16-digit title ID → INI section/key attributes |
-| `configDir` | Absolute native configuration directory override | Absolute native configuration/user-data directory override |
+| `settings` | INI sections and keys | Contents of `<content>` as Nix attributes |
+| `controllerProfiles` | Profile name → INI sections and keys | Profile name → contents of `<emulated_controller>` as Nix attributes |
+| `gameProfiles` | — | Lowercase 16-digit title ID → INI sections and keys |
+| `configDir` | Absolute configuration directory override | Absolute configuration directory override |
 
-Set `package = null` to manage configuration without installing an emulator.
-Enabling a module alone does not take ownership of any configuration files.
-Profile names omit `.ini`/`.xml` and cannot contain slashes or be `.`/`..`.
+Set `package = null` to configure an emulator without installing it. Profile
+names omit their file extension; Cemu's `controller0` is the active first player.
+Cemu settings use lists for repeated tags, `"@name"` for XML attributes and
+`"#text"` for text alongside attributes. Omit the root elements. Configuration
+can live in separate Nix files: `settings = import ./cemu-settings.nix;`.
 
-Eden uses `${XDG_CONFIG_HOME:-~/.config}/eden` on **both Linux and macOS**.
-Cemu uses `${XDG_CONFIG_HOME:-~/.config}/Cemu` on Linux and
-`~/Library/Application Support/Cemu` on macOS. Modules follow
-`xdg.configHome` on the XDG paths. If you customize it, ensure the emulator
-receives the matching `XDG_CONFIG_HOME` environment variable. `configDir`
-changes where files are managed; it does not change an emulator's runtime path.
-Eden's portable `user/config` directory in its working directory takes precedence;
-avoid portable mode or point `configDir` at the directory actually used.
-The provided Cemu package disables portable mode.
+Close emulators before applying Home Manager: declared files replace GUI edits.
+Do not include secrets in settings, as they enter the Nix store.
 
-Eden settings are native INI, including literal backslash keys such as
-`"Paths\\gamedirs\\1\\path"`. The module adds `key\default=false` companions
-so upstream uses declared values; explicitly supplied default flags win.
-Global controller keys have the `player_0_` prefix; keys inside an input profile
-do not. Mapping strings, device identifiers, calibration, motion/UDP settings,
-and other native sections remain user-supplied, without hardware assumptions.
+## Binary cache
 
-Cemu uses nixpkgs' `pkgs.formats.xml { }` (named `badgerfish`) to serialize
-structured Nix attributes. The module adds the native root elements; do not
-include `content` or `emulated_controller` wrappers yourself. Child elements
-are ordinary keys, lists produce repeated tags, and `"@name"` produces an XML
-attribute. In this formatter, text alongside attributes uses **`"#text"`**, not
-`"$"`. Booleans and numbers serialize as native XML text, `null` emits an empty
-element, and an empty list emits no tags. For example:
+Enable the public [Cachix cache](https://nix-emulators.cachix.org):
+
+```sh
+nix run nixpkgs#cachix -- use nix-emulators
+```
+
+Or configure it on NixOS / nix-darwin:
 
 ```nix
-programs.cemu.settings = {
-  Input.DSUC = { "@host" = "127.0.0.1"; "@port" = 26760; };
-  GraphicPack.Entry = [{
-    "@filename" = "graphicPacks/MyPack/rules.txt";
-    "@disabled" = false;
-    Preset = [{ category = "Resolution"; preset = "1920x1080"; }];
-  }];
+nix.settings = {
+  extra-substituters = [ "https://nix-emulators.cachix.org" ];
+  extra-trusted-public-keys = [
+    "nix-emulators.cachix.org-1:8lg5Ku12bMegHXq3KWenzzaR4jnv3ddT5W4r75nyCPA="
+  ];
 };
 ```
 
-Settings from different Nix modules can merge; use lists for repeated elements
-and `lib.mkBefore`/`lib.mkAfter` when list order matters. `settings = { }`
-explicitly manages an empty `<content>` document; `null` leaves it unmanaged.
-Raw XML strings are not accepted. To keep configuration in a separate file,
-use `settings = import ./cemu-settings.nix;` with an attribute set in that file.
-Generated XML is validated by the nixpkgs formatter during the build.
-Use the native element names from your Cemu version: controller `api` and
-`uuid` are child elements, not XML attributes. Copy device identifiers,
-calibration and mapping values from your own native profile; the module does
-not invent them or validate every emulator setting.
-Game profile options use Cemu's native INI names. Game data, firmware,
-keys, saves, shader caches, and graphics-pack assets are not managed by these
-modules. Do not put secrets in settings: generated configuration is public in
-the Nix store.
-
-### Activation and existing installations
-
-**Close the emulators before activating Home Manager.** Each declared file is
-owned in full, not merged. Activation installs ordinary writable files, even
-over an existing installation, and reapplies the declaration on **every**
-activation, including reactivation of the same generation. GUI changes work
-between activations but are overwritten by the next activation. This is not
-one-time seeding or an immutable configuration symlink.
-
-Before first replacing an existing file, the module preserves it beside the
-original as `<filename>.hm-backup`. An existing backup is never overwritten;
-if it differs from the original during first takeover, activation stops safely.
-Move that backup somewhere safe before retrying.
-Existing symlinks are replaced without modifying their source. Keep any wanted
-GUI settings in Nix before activating; backups are migration safeguards, not a
-history of later GUI edits.
-
-Removing a declared file/profile or setting `enable = false` removes files
-previously owned by that module on the next activation. Other files in the
-directory, game data, and migration backups are left alone. Ownership is tracked
-under `xdg.stateHome/nix-emulators/`; do not delete this state to reset settings.
-To uninstall cleanly, disable and activate **before** removing the module import.
-Removing an import cannot run its cleanup. Backups are not automatically restored.
-Home Manager dry runs do not modify files.
-
-The path and format choices follow upstream source: Eden's
-[path selection](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/common/fs/path_util.cpp)
-and [INI handling](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/frontend_common/config.cpp),
-and Cemu's [platform paths](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/gui/wxgui/CemuApp.cpp)
-and [controller profile serialization](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/input/InputManager.cpp).
-
-## Automatic updates
-
-### Git source packages
-
-The **Update git packages** workflow runs daily at **06:43 UTC** and can also be
-started manually. It discovers packages exposing an `updateScript`, resolves
-their upstream branches and hashes the exact commits, including submodules when
-requested. Only package manifests change; the nixpkgs pin stays unchanged.
-Updates are proposed on `automation/git-packages` and are not auto-merged.
-Failed downloads or invalid metadata leave the previous manifest intact.
-To update Cemu locally from the repository root:
-
-```sh
-nix run .#cemu-git.updateScript
-nix flake check --all-systems --no-build
-nix build .#cemu-git
-```
-
-### Add another git package
-
-The shared scheme is inspired by [Nyx's git packages](https://github.com/chaotic-cx/nyx).
-Add a derivation under `pkgs/<name>-git` accepting `src` and `version`, then
-generate its first manifest with the common updater:
-
-```sh
-nix shell --inputs-from . nixpkgs#git nixpkgs#nix-prefetch-git nixpkgs#python3 -c \
-  python3 scripts/update-git-package.py \
-  --manifest pkgs/example-git/manifest.json --owner OWNER --repo REPO --ref main
-```
-
-Add `--fetch-submodules` if required. Register the package in `flake.nix` using
-`shared/git-package.nix`, following the Cemu entry: package path, manifest path,
-owner/repository, branch and submodule setting. The helper supplies the pinned
-source/version and `updateScript`; the workflow discovers it automatically.
-No new flake input, updater script or workflow is needed for each package.
-
-### Eden
-
-The **Update Eden nightly** workflow runs daily at **06:23 UTC** and can also be
-started manually. It reads the newest published release's Markdown download
-links (the upstream API currently has an empty `assets` list), requires the
-complete supported variant matrix, hashes every download without executing it,
-and atomically updates `pkgs/eden-nightly-bin/sources.json`. Missing files or
-failed downloads leave the previous manifest unchanged. Updates are proposed
-on one reusable branch, `automation/eden-nightly`; they are not auto-merged.
-
-### Update locally and verify
-
-```sh
-python3 scripts/update-eden-nightly.py
-# Re-download and rehash even when the release tag is unchanged:
-python3 scripts/update-eden-nightly.py --force
-
-nix flake check --all-systems --no-build
-nix eval --json .#packages --apply \
-  'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-nix build .#eden-nightly-bin .#eden-nightly-bin-zen2-pgo
-```
-
-CI builds the native packages on Linux x86_64/aarch64 and macOS Apple Silicon.
-Building a package does not verify game compatibility, GPU behavior, or optimized
-CPU variants on their target hardware.
-
-Eden is GPL-3.0-or-later. Its packages redistribute upstream binaries, not
-source builds; their performance and compatibility follow upstream's artifacts.
-Cemu is MPL-2.0 and is built from source.
+Apply your system configuration afterwards. Enabling the cache means trusting
+this project's signed binaries. Only builds already published to it are available.
