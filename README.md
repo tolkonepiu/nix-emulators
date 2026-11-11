@@ -23,9 +23,16 @@ dependencies and macOS support.
 
 `ryubing-git` reuses the nixpkgs Ryubing recipe with sources pinned to upstream
 `master`, with .NET 10 and SDL3 overrides. Both git packages are updated daily
-through the shared manifest updater, which does not execute upstream code.
-Ryubing's NuGet dependencies are pinned separately in `pkgs/ryubing-git/deps.json`;
-if upstream changes them, review the source and regenerate that file manually:
+through the shared manifest updater. The workflow also regenerates Ryubing's
+NuGet lock (`pkgs/ryubing-git/deps.json`) and builds the package on Linux x86_64
+before opening a single PR containing both source and dependency updates.
+
+NuGet restore can execute upstream MSBuild logic, so generation runs with
+read-only repository permissions, without secrets or cache-upload credentials.
+A separate fresh job accepts only the expected JSON files and publishes the update PR without
+running upstream code. Source pinning itself still only fetches git data.
+
+To regenerate the NuGet lock manually:
 
 ```sh
 fetch_deps=$(nix build --no-link --print-out-paths .#ryubing-git.fetch-deps)
