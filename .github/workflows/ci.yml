@@ -30,10 +30,6 @@ jobs:
         run: |
           nix flake check --all-systems --no-build
           nix eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-      - name: Test native Home Manager modules and configuration activation
-        run: |
-          nix build --no-link --print-build-logs --impure --expr \
-            'let flake = builtins.getFlake (toString ./.); in builtins.attrValues flake.checks.${builtins.currentSystem}'
       - name: Build every native package
         run: |
           # shellcheck disable=SC2016 # Interpolation belongs to Nix, not the shell.

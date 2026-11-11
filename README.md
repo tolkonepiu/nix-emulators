@@ -124,8 +124,7 @@ environment.systemPackages = [ pkgs.eden-nightly-bin-zen2-pgo ];
 Import either `homeManagerModules.eden` or `homeManagerModules.cemu`, or
 `homeManagerModules.default` for both. No overlay, NixOS, Jovian, Steam Deck,
 or systemd/tmpfiles integration is required. Modules use your Home Manager
-`pkgs` to build the default packages; the Home Manager flake input in this
-repository is for tests, not an extra module to import into your configuration.
+`pkgs` to build the default packages.
 
 ```nix
 { inputs, pkgs, ... }:
@@ -268,43 +267,11 @@ To uninstall cleanly, disable and activate **before** removing the module import
 Removing an import cannot run its cleanup. Backups are not automatically restored.
 Home Manager dry runs do not modify files.
 
-### Why a private writable-file helper?
-
-The pinned Home Manager revision has no `home.file.mutable` option. Its normal
-file manager installs store symlinks, and cleanup deliberately leaves regular
-files alone. `onChange` only runs for generation changes, so it cannot guarantee
-restoring GUI edits when reactivating the same generation. Built-in backup
-options help with initial symlink migration, but do not supply ownership and
-cleanup for writable copies.
-
-[Home Manager PR #9921](https://github.com/nix-community/home-manager/pull/9921)
-implements the needed mutable-copy behavior within those mechanisms, but is
-not merged. We do not require a Home Manager fork or vendor its file manager.
-Until native support is available, one small shared helper handles only the
-missing writable-copy lifecycle: preflight, first-adoption backup, atomic
-replacement and removal of tracked files. Home Manager supplies the activation
-ordering and dry-run signal; nixpkgs supplies the INI/XML serializers. This
-helper can be removed once upstream mutable files cover these requirements.
-
 The path and format choices follow upstream source: Eden's
 [path selection](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/common/fs/path_util.cpp)
 and [INI handling](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/frontend_common/config.cpp),
 and Cemu's [platform paths](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/gui/wxgui/CemuApp.cpp)
 and [controller profile serialization](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/input/InputManager.cpp).
-
-### Module validation
-
-```sh
-nix flake check --all-systems --no-build
-nix build --no-link .#checks.x86_64-linux.home-manager
-nix build --no-link .#checks.x86_64-linux.managed-files
-```
-
-CI runs the checks natively on Linux x86_64/aarch64 and macOS Apple Silicon.
-They evaluate Home Manager modules, inspect native configuration output, and
-exercise existing-file migration, repeated activation, updates, and cleanup
-without building or launching emulators. They do not test physical controllers,
-game compatibility, or GUI behavior on real hardware.
 
 ## Automatic updates
 
