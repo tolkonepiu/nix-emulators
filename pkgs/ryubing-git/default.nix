@@ -28,12 +28,13 @@
     "--blame"
     "--results-directory" "TestResults"
     "--diag" "vstest.log"
+    "--" "NUnit.NumberOfTestWorkers=0" "NUnit.InternalTraceLevel=Debug"
   ];
   failureHook = (old.failureHook or "") + ''
     echo "=== ARM crash: test sequence ==="
     find . -type f -name '*_Sequence.xml' -print -exec cat {} \;
     echo "=== ARM crash: final VSTest diagnostics ==="
-    find . -type f \( -name 'vstest*.log' -o -name 'vstest*.txt' \) \
+    find . -type f \( -name 'vstest*.log' -o -name 'vstest*.txt' -o -name 'InternalTrace*.log' \) \
       -print -exec tail -n 100 {} \;
   '';
 })
