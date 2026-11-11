@@ -119,6 +119,148 @@ nixpkgs.overlays = [ inputs.nix-emulators.overlays.default ];
 environment.systemPackages = [ pkgs.eden-nightly-bin-zen2-pgo ];
 ```
 
+## Home Manager modules
+
+Import either `homeManagerModules.eden` or `homeManagerModules.cemu`, or
+`homeManagerModules.default` for both. No overlay, NixOS, Jovian, Steam Deck,
+or systemd/tmpfiles integration is required. Modules use your Home Manager
+`pkgs` to build the default packages; the Home Manager flake input in this
+repository is for tests, not an extra module to import into your configuration.
+
+```nix
+{ inputs, pkgs, ... }:
+{
+  imports = [ inputs.nix-emulators.homeManagerModules.default ];
+
+  programs.eden = {
+    enable = true;
+    # Optional; defaults to the generic eden-nightly-bin package.
+    package = inputs.nix-emulators.packages.${pkgs.stdenv.hostPlatform.system}.eden-nightly-bin;
+    settings = {
+      Renderer = {
+        backend = 1;
+        use_disk_shader_cache = true;
+      };
+      Controls.player_0_profile_name = "MyController";
+    };
+    controllerProfiles.MyController.Controls = {
+      # Replace with your controller's native Eden mapping strings.
+      button_a = "engine:sdl,button:0";
+      motion_enabled = true;
+    };
+  };
+
+  programs.cemu = {
+    enable = true;
+    # Complete native XML, including the <content> root.
+    settings = ''
+      <?xml version="1.0" encoding="UTF-8"?>
+      <content>
+        <GamePaths>
+          <Entry>/home/me/Games/Wii U</Entry>
+          <Entry>/mnt/games/Wii U</Entry>
+        </GamePaths>
+        <Audio><TVVolume>50</TVVolume></Audio>
+      </content>
+    '';
+    # Read your native profile, including its <emulated_controller> root.
+    # controller0 is the active first-player profile; other names are presets.
+    controllerProfiles.controller0 = builtins.readFile ./controller0.xml;
+    gameProfiles."0005000010101c00" = {
+      CPU.cpuMode = "Auto";
+      Graphics.graphics_api = 1;
+    };
+  };
+}
+```
+
+### Options and native formats
+
+| Option | Eden | Cemu |
+| --- | --- | --- |
+| `enable` | Install and configure Eden | Install and configure Cemu |
+| `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` |
+| `settings` | INI section/key attributes; `{ }` leaves settings unmanaged | Complete XML string; `null` leaves settings unmanaged |
+| `controllerProfiles` | Filename stem → INI section/key attributes | Filename stem → complete native XML string |
+| `gameProfiles` | — | Lowercase 16-digit title ID → INI section/key attributes |
+| `configDir` | Absolute native configuration directory override | Absolute native configuration/user-data directory override |
+
+Set `package = null` to manage configuration without installing an emulator.
+Enabling a module alone does not take ownership of any configuration files.
+Profile names omit `.ini`/`.xml` and cannot contain slashes or be `.`/`..`.
+
+Eden uses `${XDG_CONFIG_HOME:-~/.config}/eden` on **both Linux and macOS**.
+Cemu uses `${XDG_CONFIG_HOME:-~/.config}/Cemu` on Linux and
+`~/Library/Application Support/Cemu` on macOS. Modules follow
+`xdg.configHome` on the XDG paths. If you customize it, ensure the emulator
+receives the matching `XDG_CONFIG_HOME` environment variable. `configDir`
+changes where files are managed; it does not change an emulator's runtime path.
+Eden's portable `user/config` directory in its working directory takes precedence;
+avoid portable mode or point `configDir` at the directory actually used.
+The provided Cemu package disables portable mode.
+
+Eden settings are native INI, including literal backslash keys such as
+`"Paths\\gamedirs\\1\\path"`. The module adds `key\default=false` companions
+so upstream uses declared values; explicitly supplied default flags win.
+Global controller keys have the `player_0_` prefix; keys inside an input profile
+do not. Mapping strings, device identifiers, calibration, motion/UDP settings,
+and other native sections remain user-supplied, without hardware assumptions.
+
+Cemu XML is kept verbatim rather than converted from an attribute set, preserving
+attributes and repeated elements for game paths, controller mappings, graphics
+pack selections, and other native settings. XML is checked for well-formedness
+and the expected root at build time. Start with files exported by your Cemu
+version; the module does not invent device UUIDs or validate every emulator key.
+Game profile options likewise use Cemu's native INI names. Game data, firmware,
+keys, saves, shader caches, and graphics-pack assets are not managed by these
+modules. Do not put secrets in settings: generated configuration is public in
+the Nix store.
+
+### Activation and existing installations
+
+**Close the emulators before activating Home Manager.** Each declared file is
+owned in full, not merged. Activation installs ordinary writable files, even
+over an existing installation, and reapplies the declaration on **every**
+activation, including reactivation of the same generation. GUI changes work
+between activations but are overwritten by the next activation. This is not
+one-time seeding or an immutable configuration symlink.
+
+Before first replacing an existing file, the module preserves it beside the
+original as `<filename>.hm-backup`. An existing backup is never overwritten;
+if it differs from the original during first takeover, activation stops safely.
+Move that backup somewhere safe before retrying.
+Existing symlinks are replaced without modifying their source. Keep any wanted
+GUI settings in Nix before activating; backups are migration safeguards, not a
+history of later GUI edits.
+
+Removing a declared file/profile or setting `enable = false` removes files
+previously owned by that module on the next activation. Other files in the
+directory, game data, and migration backups are left alone. Ownership is tracked
+under `xdg.stateHome/nix-emulators/`; do not delete this state to reset settings.
+To uninstall cleanly, disable and activate **before** removing the module import.
+Removing an import cannot run its cleanup. Backups are not automatically restored.
+Home Manager dry runs do not modify files.
+
+The path and format choices follow upstream source: Eden's
+[path selection](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/common/fs/path_util.cpp)
+and [INI handling](https://git.eden-emu.dev/eden-emu/eden/src/commit/cf654052c416f9e7c80cef0a7d321476b1c52f99/src/frontend_common/config.cpp),
+and Cemu's [platform paths](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/gui/wxgui/CemuApp.cpp)
+and [controller profile serialization](https://github.com/cemu-project/Cemu/blob/b487cb70ed96cf6a3b5385d1aeff6ea41eaa3f63/src/input/InputManager.cpp).
+
+### Module validation
+
+```sh
+nix flake check --all-systems --no-build
+nix build --no-link .#checks.x86_64-linux.home-manager
+nix build --no-link .#checks.x86_64-linux.managed-files
+```
+
+CI runs the checks natively on Linux x86_64/aarch64 and macOS Apple Silicon.
+They evaluate Home Manager modules, inspect native configuration output, and
+exercise existing-file migration, repeated activation, updates, and cleanup
+without building or launching emulators. They do not test physical controllers,
+game compatibility, or GUI behavior on real hardware.
+
 ## Automatic updates
 
 ### Git source packages
