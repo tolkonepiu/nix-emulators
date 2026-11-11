@@ -22,17 +22,22 @@ with Home Manager modules for Eden and Cemu.
 dependencies and macOS support.
 
 `ryubing-git` reuses the nixpkgs Ryubing recipe with sources pinned to upstream
-`master`, with .NET 10 and SDL3 overrides. Both git packages are updated daily
-through the shared manifest updater. The workflow also regenerates Ryubing's
-NuGet lock (`pkgs/ryubing-git/deps.json`) and builds the package on Linux x86_64
-before opening a single PR containing both source and dependency updates.
+`master`, with .NET 10 and SDL3 overrides.
+
+Git packages are updated daily through their `updateScript` passthroughs. If a
+package has `pkgs/<package>/deps.json`, the shared workflow also regenerates its
+NuGet lock using `<package>.fetch-deps`. Packages without that file skip dependency
+regeneration. Adding another package with the same conventions needs no workflow
+changes. All discovered git packages are built on Linux x86_64 before opening a
+single PR containing the source and dependency updates.
 
 NuGet restore can execute upstream MSBuild logic, so generation runs with
 read-only repository permissions, without secrets or cache-upload credentials.
-A separate fresh job accepts only the expected JSON files and publishes the update PR without
-running upstream code. Source pinning itself still only fetches git data.
+A separate fresh job accepts only JSON pins already present in the trusted
+checkout and publishes the update PR without running upstream code. Source
+pinning itself still only fetches git data.
 
-To regenerate the NuGet lock manually:
+To regenerate a NuGet lock manually, for example Ryubing's:
 
 ```sh
 fetch_deps=$(nix build --no-link --print-out-paths .#ryubing-git.fetch-deps)

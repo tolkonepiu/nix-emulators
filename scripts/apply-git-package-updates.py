@@ -22,8 +22,11 @@ def string_fields(value, required, optional=frozenset()):
 
 def apply_updates(artifact, root="."):
     artifact, root = Path(artifact), Path(root)
-    allowed = {path.relative_to(root) for path in root.glob("pkgs/*/manifest.json")}
-    allowed.add(Path("pkgs/ryubing-git/deps.json"))
+    allowed = {
+        path.relative_to(root)
+        for pattern in ("pkgs/*/manifest.json", "pkgs/*/deps.json")
+        for path in root.glob(pattern)
+    }
     directories = {parent for path in allowed for parent in path.parents if parent != Path(".")}
     if not stat.S_ISDIR(artifact.lstat().st_mode):
         raise ValueError("Artifact must be a real directory")

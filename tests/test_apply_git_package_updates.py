@@ -26,14 +26,17 @@ class ApplyGitPackageUpdatesTests(unittest.TestCase):
             "lastModifiedDate": "20261111004018",
         }
         self.files = {
-            "pkgs/cemu-git/manifest.json": self.manifest,
-            "pkgs/ryubing-git/manifest.json": self.manifest,
-            "pkgs/ryubing-git/deps.json": [{
+            "pkgs/source-only/manifest.json": self.manifest,
+            "pkgs/dotnet-one/manifest.json": self.manifest,
+            "pkgs/dotnet-one/deps.json": [{
                 "pname": "Avalonia", "version": "12.1.1", "hash": "sha256-example",
                 "url": "https://example.org/avalonia.nupkg",
             }],
         }
-        for relative, value in self.files.items():
+        self.write_fixtures(self.files)
+
+    def write_fixtures(self, files):
+        for relative, value in files.items():
             for base in (self.root, self.artifact):
                 path = base / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +53,28 @@ class ApplyGitPackageUpdatesTests(unittest.TestCase):
         for relative, value in self.files.items():
             self.assertEqual(json.loads((self.root / relative).read_text()), value)
 
+    def test_second_nuget_package_is_discovered(self):
+        additional = {
+            "pkgs/independent-two/manifest.json": self.manifest,
+            "pkgs/independent-two/deps.json": [{
+                "pname": "Another.Dependency", "version": "2.0", "hash": "sha256-other",
+            }],
+        }
+        self.write_fixtures(additional)
+        updater.apply_updates(self.artifact, self.root)
+        for relative, value in (self.files | additional).items():
+            self.assertEqual(json.loads((self.root / relative).read_text()), value)
+
+    def test_no_nuget_dependencies(self):
+        relative = "pkgs/dotnet-one/deps.json"
+        for base in (self.root, self.artifact):
+            (base / relative).unlink()
+        updater.apply_updates(self.artifact, self.root)
+        for relative, value in self.files.items():
+            if relative.endswith("manifest.json"):
+                self.assertEqual(json.loads((self.root / relative).read_text()), value)
+        self.assertFalse((self.root / "pkgs/dotnet-one/deps.json").exists())
+
     def test_unexpected_paths(self):
         for relative in ("script.py", "pkgs/other/manifest.json", ".git/config"):
             with self.subTest(relative=relative):
@@ -60,9 +85,9 @@ class ApplyGitPackageUpdatesTests(unittest.TestCase):
                 path.unlink()
 
     def test_symlink_file(self):
-        path = self.artifact / "pkgs/ryubing-git/deps.json"
+        path = self.artifact / "pkgs/dotnet-one/deps.json"
         path.unlink()
-        path.symlink_to(self.root / "pkgs/ryubing-git/deps.json")
+        path.symlink_to(self.root / "pkgs/dotnet-one/deps.json")
         self.assert_rejected()
 
     def test_symlink_directory(self):
@@ -71,20 +96,20 @@ class ApplyGitPackageUpdatesTests(unittest.TestCase):
 
     def test_nonregular_file(self):
         import os
-        path = self.artifact / "pkgs/ryubing-git/deps.json"
+        path = self.artifact / "pkgs/dotnet-one/deps.json"
         path.unlink()
         os.mkfifo(path)
         self.assert_rejected()
 
     def test_invalid_json_and_shapes(self):
         for relative, contents in (
-            ("pkgs/ryubing-git/deps.json", "{"),
-            ("pkgs/ryubing-git/deps.json", "{}"),
-            ("pkgs/ryubing-git/deps.json", '[{"pname":"x"}]'),
-            ("pkgs/ryubing-git/deps.json", '[{"pname":"x","version":1,"hash":"x"}]'),
-            ("pkgs/ryubing-git/deps.json", '[{"pname":"x","version":"1","hash":"x","url":false}]'),
-            ("pkgs/ryubing-git/manifest.json", "[]"),
-            ("pkgs/ryubing-git/manifest.json", '{"version":"1"}'),
+            ("pkgs/dotnet-one/deps.json", "{"),
+            ("pkgs/dotnet-one/deps.json", "{}"),
+            ("pkgs/dotnet-one/deps.json", '[{"pname":"x"}]'),
+            ("pkgs/dotnet-one/deps.json", '[{"pname":"x","version":1,"hash":"x"}]'),
+            ("pkgs/dotnet-one/deps.json", '[{"pname":"x","version":"1","hash":"x","url":false}]'),
+            ("pkgs/dotnet-one/manifest.json", "[]"),
+            ("pkgs/dotnet-one/manifest.json", '{"version":"1"}'),
         ):
             with self.subTest(relative=relative, contents=contents):
                 path = self.artifact / relative
@@ -92,12 +117,12 @@ class ApplyGitPackageUpdatesTests(unittest.TestCase):
                 self.assert_rejected()
                 path.write_text(json.dumps(self.files[relative]))
 
-    def test_missing_file(self):
-        (self.artifact / "pkgs/ryubing-git/deps.json").unlink()
+    def test_missing_expected_dependencies(self):
+        (self.artifact / "pkgs/dotnet-one/deps.json").unlink()
         self.assert_rejected()
 
     def test_size_limit(self):
-        (self.artifact / "pkgs/ryubing-git/deps.json").write_bytes(b" " * (updater.MAX_FILE_SIZE + 1))
+        (self.artifact / "pkgs/dotnet-one/deps.json").write_bytes(b" " * (updater.MAX_FILE_SIZE + 1))
         self.assert_rejected()
 
 
