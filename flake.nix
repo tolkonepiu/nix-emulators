@@ -1,7 +1,14 @@
 {
   description = "Emulator packages and Home Manager modules for Linux and macOS";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+  nixConfig = {
+    extra-substituters = [ "https://nix-emulators.cachix.org" ];
+    extra-trusted-public-keys = [
+      "nix-emulators.cachix.org-1:8lg5Ku12bMegHXq3KWenzzaR4jnv3ddT5W4r75nyCPA="
+    ];
+  };
 
   outputs = { self, nixpkgs, ... }:
     let

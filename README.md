@@ -117,6 +117,9 @@ Do not include secrets in settings, as they enter the Nix store.
 
 ## Binary cache
 
+The flake declares this cache in `nixConfig`; accept Nix's prompt to use it
+with commands such as `nix run`. For persistent configuration, use either method below.
+
 Enable the public [Cachix cache](https://nix-emulators.cachix.org):
 
 ```sh
