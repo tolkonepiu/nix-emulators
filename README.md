@@ -16,6 +16,9 @@ for Linux and macOS.
 | `eden-nightly-bin-zen4-pgo` | ✓ | — | — |
 | `cemu-git` | ✓ | ✓ | ✓ |
 
+`cemu-git` reuses the nixpkgs Cemu recipe, with overrides for upstream git
+dependencies and macOS support.
+
 ### Run or install
 
 ```sh
