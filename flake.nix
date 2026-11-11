@@ -1,9 +1,9 @@
 {
-  description = "Emulator packages for Linux and macOS";
+  description = "Emulator packages and Home Manager modules for Linux and macOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-  outputs = { nixpkgs, ... }:
+  outputs = { self, nixpkgs, ... }:
     let
       manifest = builtins.fromJSON (builtins.readFile ./pkgs/eden-nightly-bin/sources.json);
       packageSet = system: pkgs:
@@ -32,5 +32,17 @@
       );
 
       overlays.default = final: prev: packageSet prev.stdenv.hostPlatform.system final;
+
+      homeManagerModules = {
+        eden = import ./modules/eden.nix {
+          defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).eden-nightly-bin;
+        };
+        cemu = import ./modules/cemu.nix {
+          defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).cemu-git;
+        };
+        default = {
+          imports = [ self.homeManagerModules.eden self.homeManagerModules.cemu ];
+        };
+      };
     };
 }
