@@ -30,6 +30,7 @@ base.overrideAttrs (old: {
     (darwinMinVersionHook "14.4")
   ];
   cmakeFlags = old.cmakeFlags ++ [
+    (lib.cmakeFeature "CMAKE_FIND_FRAMEWORK" "LAST")
     (lib.cmakeBool "USE_SYSTEM_MVK" true)
     (lib.cmakeBool "USE_LIBEVDEV" false)
     (lib.cmakeFeature "CMAKE_OSX_ARCHITECTURES" "arm64")
