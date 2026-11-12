@@ -1,33 +1,29 @@
 # nix-emulators
 
-[Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases),
-[Cemu](https://github.com/cemu-project/Cemu), and
-[Ryubing](https://git.ryujinx.app/projects/Ryubing) packages for Linux and macOS,
-with Home Manager modules for all three emulators.
+Emulator packages for Linux and macOS, with Home Manager modules.
 
 ## Packages
 
 | Package | Linux x86_64 | Linux aarch64 | macOS Apple Silicon |
 | --- | :---: | :---: | :---: |
+| `cemu-git` | ✓ | ✓ | ✓ |
 | `eden-nightly-bin` (also `default`) | ✓ | ✓ | ✓ |
 | `eden-nightly-bin-pgo` | ✓ | ✓ | — |
 | `eden-nightly-bin-zen2` | ✓ | — | — |
 | `eden-nightly-bin-zen2-pgo` | ✓ | — | — |
 | `eden-nightly-bin-zen4` | ✓ | — | — |
 | `eden-nightly-bin-zen4-pgo` | ✓ | — | — |
-| `cemu-git` | ✓ | ✓ | ✓ |
+| `pcsx2-git` | ✓ | — | — |
+| `rpcs3-git` | ✓ | ✓ | ✓ |
 | `ryubing-git` | ✓ | ✓ | ✓ |
+| `shadps4-git` | ✓ | — | — |
 
 ### Run or install
 
 ```sh
 nix run github:tolkonepiu/nix-emulators#eden-nightly-bin
-nix run github:tolkonepiu/nix-emulators#cemu-git
-nix run github:tolkonepiu/nix-emulators#ryubing-git
 
-nix profile add github:tolkonepiu/nix-emulators#eden-nightly-bin
 nix profile add github:tolkonepiu/nix-emulators#cemu-git
-nix profile add github:tolkonepiu/nix-emulators#ryubing-git
 ```
 
 ### NixOS / Home Manager
@@ -45,7 +41,6 @@ Pass `inputs` to your configuration and select packages:
 environment.systemPackages = with inputs.nix-emulators.packages.${pkgs.stdenv.hostPlatform.system}; [
   eden-nightly-bin
   cemu-git
-  ryubing-git
 ];
 ```
 
@@ -53,14 +48,13 @@ For Home Manager, use `home.packages` instead. Alternatively, use the overlay:
 
 ```nix
 nixpkgs.overlays = [ inputs.nix-emulators.overlays.default ];
-environment.systemPackages = [ pkgs.eden-nightly-bin pkgs.cemu-git pkgs.ryubing-git ];
+environment.systemPackages = [ pkgs.eden-nightly-bin pkgs.cemu-git ];
 ```
 
 ## Home Manager modules
 
-Import `homeManagerModules.default` for all three emulators, or
-`homeManagerModules.eden`, `homeManagerModules.cemu`, or
-`homeManagerModules.ryubing` individually:
+Import `homeManagerModules.default` for all available modules, or
+`homeManagerModules.<emulator>` individually:
 
 ```nix
 { inputs, ... }:

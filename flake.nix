@@ -36,12 +36,39 @@
             repo = "Ryubing";
             ref = "master";
           };
+        } // nixpkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          shadps4-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/shadps4-git;
+            manifestPath = "pkgs/shadps4-git/manifest.json";
+            owner = "shadps4-emu";
+            repo = "shadPS4";
+            fetchSubmodules = true;
+          };
+          pcsx2-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/pcsx2-git;
+            manifestPath = "pkgs/pcsx2-git/manifest.json";
+            owner = "PCSX2";
+            repo = "pcsx2";
+            ref = "master";
+          };
+        } // nixpkgs.lib.optionalAttrs (nixpkgs.lib.hasSuffix "-linux" system || system == "aarch64-darwin") {
+          rpcs3-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/rpcs3-git;
+            manifestPath = "pkgs/rpcs3-git/manifest.json";
+            owner = "RPCS3";
+            repo = "rpcs3";
+            ref = "master";
+            fetchSubmodules = true;
+          };
         };
     in
     {
       packages = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ] (system:
         let
-          packages = packageSet system (import nixpkgs { inherit system; });
+          packages = packageSet system (import nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate = package: nixpkgs.lib.getName package == "rpcs3-git";
+          });
         in
         packages // { default = packages.eden-nightly-bin; }
       );
