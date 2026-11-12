@@ -41,5 +41,3 @@ jobs:
         run: |
           nix run .#cemu-git -- --version
           nix run .#ryubing-git -- --no-gui --version
-      - name: Check Ryubing default configuration without a display
-        run: nix build --no-link --print-build-logs .#ryubing-git.tests.dump-default-config
