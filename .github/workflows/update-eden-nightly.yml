@@ -55,7 +55,3 @@ jobs:
           add-paths: pkgs/eden-nightly-bin/sources.json
           commit-message: 'chore: update Eden nightly binaries'
           title: 'chore: update Eden nightly binaries'
-          body: |
-            Pins the complete latest nightly release with SHA-256 hashes of raw downloads.
-            Evaluation of all advertised systems ran before opening this PR.
-            With the default GITHUB_TOKEN, PR workflows do not run automatically; run CI manually on this branch before merging for native build coverage, or configure UPDATE_TOKEN to trigger PR CI.
