@@ -3,7 +3,7 @@
 [Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases),
 [Cemu](https://github.com/cemu-project/Cemu), and
 [Ryubing](https://git.ryujinx.app/projects/Ryubing) packages for Linux and macOS,
-with Home Manager modules for Eden and Cemu.
+with Home Manager modules for all three emulators.
 
 ## Packages
 
@@ -58,8 +58,9 @@ environment.systemPackages = [ pkgs.eden-nightly-bin pkgs.cemu-git pkgs.ryubing-
 
 ## Home Manager modules
 
-Import `homeManagerModules.default` for both emulators, or
-`homeManagerModules.eden` / `homeManagerModules.cemu` individually:
+Import `homeManagerModules.default` for all three emulators, or
+`homeManagerModules.eden`, `homeManagerModules.cemu`, or
+`homeManagerModules.ryubing` individually:
 
 ```nix
 { inputs, ... }:
@@ -100,22 +101,48 @@ Import `homeManagerModules.default` for both emulators, or
       Graphics.graphics_api = 1;
     };
   };
+
+  programs.ryubing = {
+    enable = true;
+    settings = {
+      docked_mode = true;
+      res_scale = 2;
+    };
+  };
 }
 ```
 
-| Option | Eden | Cemu |
-| --- | --- | --- |
-| `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` |
-| `settings` | INI sections and keys | Contents of `<content>` as Nix attributes |
-| `controllerProfiles` | Profile name → INI sections and keys | Profile name → contents of `<emulated_controller>` as Nix attributes |
-| `gameProfiles` | — | Lowercase 16-digit title ID → INI sections and keys |
-| `configDir` | Absolute configuration directory override | Absolute configuration directory override |
+| Option | Eden | Cemu | Ryubing |
+| --- | --- | --- | --- |
+| `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` | Defaults to `ryubing-git` |
+| `settings` | INI sections and keys | Contents of `<content>` as Nix attributes | JSON settings overriding upstream defaults |
+| `controllerProfiles` | Profile name → INI sections and keys | Profile name → contents of `<emulated_controller>` as Nix attributes | — |
+| `gameProfiles` | — | Lowercase 16-digit title ID → INI sections and keys | — |
+| `configDir` | Absolute configuration directory override | Absolute configuration directory override | Absolute configuration directory override |
 
 Set `package = null` to configure an emulator without installing it. Profile
 names omit their file extension; Cemu's `controller0` is the active first player.
 Cemu settings use lists for repeated tags, `"@name"` for XML attributes and
 `"#text"` for text alongside attributes. Omit the root elements. Configuration
 can live in separate Nix files: `settings = import ./cemu-settings.nix;`.
+
+Ryubing settings use native snake_case JSON keys. `settings = null` (the default)
+leaves `Config.json` unmanaged; `settings = { };` manages the complete upstream
+defaults. Nonempty settings recursively override those defaults; arrays are
+replaced, not appended. No personal configuration export is needed. The full
+configuration and its schema version come from the selected package at build
+time, so defaults follow package updates; do not set `settings.version`.
+The native configuration directory is `~/.config/Ryujinx` on Linux (respecting
+`XDG_CONFIG_HOME`) and `~/Library/Application Support/Ryujinx` on macOS.
+
+The `ryubing-git` package supplies a headless `--dump-default-config <file>` mode
+for this purpose; the output path must be absolute. Alternative packages must
+support that mode. With `package = null`, the default package still generates
+configuration but is not installed in the Home Manager profile. Generation does
+not inspect user data or GPUs: the generic graphics backend is OpenGL on Linux and Vulkan
+on macOS. Override `settings.graphics_backend` if needed for your hardware.
+Disabling management removes the previously managed file; the initial backup,
+if any, remains available as `Config.json.hm-backup`.
 
 Close emulators before applying Home Manager: declared files replace GUI edits.
 Do not include secrets in settings, as they enter the Nix store.
