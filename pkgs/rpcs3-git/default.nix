@@ -1,6 +1,7 @@
 {
   lib,
   stdenv,
+  darwinMinVersionHook,
   moltenvk,
   vulkan-loader,
   rpcs3,
@@ -23,7 +24,8 @@ base.overrideAttrs (old: {
   pname = "rpcs3-git";
   inherit src version;
 } // lib.optionalAttrs stdenv.hostPlatform.isDarwin {
-  nativeBuildInputs = builtins.filter (input: input != null) old.nativeBuildInputs;
+  nativeBuildInputs = builtins.filter (input: input != null) old.nativeBuildInputs
+    ++ [ (darwinMinVersionHook "14.4") ];
   buildInputs = builtins.filter (input: input != null) old.buildInputs ++ [ moltenvk ];
   cmakeFlags = old.cmakeFlags ++ [
     (lib.cmakeBool "USE_SYSTEM_MVK" true)
