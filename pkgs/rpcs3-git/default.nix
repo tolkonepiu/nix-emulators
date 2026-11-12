@@ -24,9 +24,11 @@ base.overrideAttrs (old: {
   pname = "rpcs3-git";
   inherit src version;
 } // lib.optionalAttrs stdenv.hostPlatform.isDarwin {
-  nativeBuildInputs = builtins.filter (input: input != null) old.nativeBuildInputs
-    ++ [ (darwinMinVersionHook "14.4") ];
-  buildInputs = builtins.filter (input: input != null) old.buildInputs ++ [ moltenvk ];
+  nativeBuildInputs = builtins.filter (input: input != null) old.nativeBuildInputs;
+  buildInputs = builtins.filter (input: input != null) old.buildInputs ++ [
+    moltenvk
+    (darwinMinVersionHook "14.4")
+  ];
   cmakeFlags = old.cmakeFlags ++ [
     (lib.cmakeBool "USE_SYSTEM_MVK" true)
     (lib.cmakeBool "USE_LIBEVDEV" false)
