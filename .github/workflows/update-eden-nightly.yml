@@ -47,7 +47,7 @@ jobs:
         run: |
           nix --accept-flake-config flake check --all-systems --no-build
           nix --accept-flake-config eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-      - uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
+      - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
           token: ${{ secrets.UPDATE_TOKEN || github.token }}
           branch: automation/eden-nightly
