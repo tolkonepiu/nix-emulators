@@ -36,6 +36,11 @@ base.overrideAttrs (old: {
   postPatch = (old.postPatch or "") + ''
     substituteInPlace rpcs3/CMakeLists.txt \
       --replace-fail 'COMMAND "''${MACDEPLOYQT_EXECUTABLE}" "''${PROJECT_BINARY_DIR}/bin/rpcs3.app" "$<$<CONFIG:Debug,RelWithDebInfo>:-no-strip>"' ""
+    substituteInPlace 3rdparty/hidapi/CMakeLists.txt \
+      --replace-fail 'hidapi-hidraw' 'hidapi'
+    substituteInPlace CMakeLists.txt \
+      --replace-fail 'list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew")' "" \
+      --replace-fail 'list(APPEND CMAKE_SYSTEM_PREFIX_PATH "/opt/homebrew")' ""
   '';
 
   installPhase = ''
