@@ -55,8 +55,11 @@
         cemu = import ./modules/cemu.nix {
           defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).cemu-git;
         };
+        ryubing = import ./modules/ryubing.nix {
+          defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).ryubing-git;
+        };
         default = {
-          imports = [ self.homeManagerModules.eden self.homeManagerModules.cemu ];
+          imports = [ self.homeManagerModules.eden self.homeManagerModules.cemu self.homeManagerModules.ryubing ];
         };
       };
     };

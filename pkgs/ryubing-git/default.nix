@@ -9,6 +9,7 @@
 }).overrideAttrs (old: {
   pname = "ryubing-git";
   inherit src version;
+  patches = (old.patches or [ ]) ++ [ ./dump-default-config.patch ];
   # MSBuild imports Nix's unstable version from the environment during restore.
   dotnetFlags = old.dotnetFlags ++ [ "-p:Version=0.0.0" ];
   versionForDotnet = "0.0.0";

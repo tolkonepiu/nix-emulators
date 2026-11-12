@@ -1,0 +1,50 @@
+diff --git a/src/Ryujinx/Program.cs b/src/Ryujinx/Program.cs
+--- a/src/Ryujinx/Program.cs
++++ b/src/Ryujinx/Program.cs
+@@ -51,2 +51,17 @@ namespace Ryujinx.Ava
+         {
++            if (args.Length > 0 && args[0] == "--dump-default-config")
++            {
++                if (args.Length != 2 || !Path.IsPathFullyQualified(args[1]))
++                {
++                    Console.Error.WriteLine("Usage: --dump-default-config <absolute-output-file>");
++                    return 1;
++                }
++
++                // Export upstream defaults without user-data initialization or GPU probing.
++                ConfigurationState.Initialize();
++                ConfigurationState.Instance.LoadDefault(detectGraphicsBackend: false);
++                ConfigurationState.Instance.ToFileFormat().SaveConfig(args[1]);
++                return 0;
++            }
++
+             Version = ReleaseInformation.Version;
+diff --git a/src/Ryujinx/Systems/Configuration/ConfigurationState.cs b/src/Ryujinx/Systems/Configuration/ConfigurationState.cs
+--- a/src/Ryujinx/Systems/Configuration/ConfigurationState.cs
++++ b/src/Ryujinx/Systems/Configuration/ConfigurationState.cs
+@@ -167,4 +167,4 @@ namespace Ryujinx.Ava.Systems.Configuration
+-        public void LoadDefault()
++        public void LoadDefault(bool detectGraphicsBackend = true)
+         {
+             Logger.EnableFileLog.Value = true;
+             Graphics.BackendThreading.Value = BackendThreading.Auto;
+@@ -172,7 +172,7 @@ namespace Ryujinx.Ava.Systems.Configuration
+             Graphics.ResScaleCustom.Value = 1.0f;
+             Graphics.MaxAnisotropy.Value = -1.0f;
+             Graphics.AspectRatio.Value = AspectRatio.Fixed16x9;
+-            Graphics.GraphicsBackend.Value = DefaultGraphicsBackend();
++            Graphics.GraphicsBackend.Value = DefaultGraphicsBackend(detectGraphicsBackend);
+             Graphics.PreferredGpu.Value = string.Empty;
+             Graphics.ShadersDumpPath.Value = string.Empty;
+             Logger.EnableDebug.Value = false;
+@@ -360,8 +360,8 @@ namespace Ryujinx.Ava.Systems.Configuration
+-        private static GraphicsBackend DefaultGraphicsBackend()
++        private static GraphicsBackend DefaultGraphicsBackend(bool detectGraphicsBackend)
+         {
+             // Any system running macOS or returning any amount of valid Vulkan devices should default to Vulkan.
+             // Checks for if the Vulkan version and featureset is compatible should be performed within VulkanRenderer.
+-            if (OperatingSystem.IsMacOS() || VulkanRenderer.GetPhysicalDevices().Length > 0)
++            if (OperatingSystem.IsMacOS() || (detectGraphicsBackend && VulkanRenderer.GetPhysicalDevices().Length > 0))
+             {
+                 return GraphicsBackend.Vulkan;
+             }

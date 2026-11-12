@@ -3,7 +3,7 @@
 [Eden nightly](https://git.eden-emu.dev/eden-ci/nightly/releases),
 [Cemu](https://github.com/cemu-project/Cemu), and
 [Ryubing](https://git.ryujinx.app/projects/Ryubing) packages for Linux and macOS,
-with Home Manager modules for Eden and Cemu.
+with Home Manager modules for all three emulators.
 
 ## Packages
 
@@ -58,8 +58,9 @@ environment.systemPackages = [ pkgs.eden-nightly-bin pkgs.cemu-git pkgs.ryubing-
 
 ## Home Manager modules
 
-Import `homeManagerModules.default` for both emulators, or
-`homeManagerModules.eden` / `homeManagerModules.cemu` individually:
+Import `homeManagerModules.default` for all three emulators, or
+`homeManagerModules.eden`, `homeManagerModules.cemu`, or
+`homeManagerModules.ryubing` individually:
 
 ```nix
 { inputs, ... }:
@@ -100,16 +101,24 @@ Import `homeManagerModules.default` for both emulators, or
       Graphics.graphics_api = 1;
     };
   };
+
+  programs.ryubing = {
+    enable = true;
+    settings = {
+      docked_mode = true;
+      res_scale = 2;
+    };
+  };
 }
 ```
 
-| Option | Eden | Cemu |
-| --- | --- | --- |
-| `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` |
-| `settings` | INI sections and keys | Contents of `<content>` as Nix attributes |
-| `controllerProfiles` | Profile name → INI sections and keys | Profile name → contents of `<emulated_controller>` as Nix attributes |
-| `gameProfiles` | — | Lowercase 16-digit title ID → INI sections and keys |
-| `configDir` | Absolute configuration directory override | Absolute configuration directory override |
+| Option | Eden | Cemu | Ryubing |
+| --- | --- | --- | --- |
+| `package` | Defaults to `eden-nightly-bin` | Defaults to `cemu-git` | Defaults to `ryubing-git` |
+| `settings` | INI sections and keys | Contents of `<content>` as Nix attributes | JSON settings overriding upstream defaults |
+| `controllerProfiles` | Profile name → INI sections and keys | Profile name → contents of `<emulated_controller>` as Nix attributes | — |
+| `gameProfiles` | — | Lowercase 16-digit title ID → INI sections and keys | — |
+| `configDir` | Absolute configuration directory override | Absolute configuration directory override | Absolute configuration directory override |
 
 Set `package = null` to configure an emulator without installing it. Profile
 names omit their file extension; Cemu's `controller0` is the active first player.
