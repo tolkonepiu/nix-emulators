@@ -30,14 +30,14 @@ jobs:
           skipPush: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
       - name: Check and evaluate every advertised system
         run: |
-          nix flake check --all-systems --no-build
-          nix eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
+          nix --accept-flake-config flake check --all-systems --no-build
+          nix --accept-flake-config eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
       - name: Build every native package
         run: |
           # shellcheck disable=SC2016 # Interpolation belongs to Nix, not the shell.
-          nix build --no-link --print-build-logs --impure --expr \
+          nix --accept-flake-config build --no-link --print-build-logs --impure --expr \
             'let flake = builtins.getFlake (toString ./.); in builtins.attrValues flake.packages.${builtins.currentSystem}'
       - name: Check launchers without a display
         run: |
-          nix run .#cemu-git -- --version
-          nix run .#ryubing-git -- --no-gui --version
+          nix --accept-flake-config run .#cemu-git -- --version
+          nix --accept-flake-config run .#ryubing-git -- --no-gui --version
