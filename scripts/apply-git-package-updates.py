@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Validate generated JSON pins before applying them to a trusted checkout."""
+"""Validate generated source and dependency data before applying it to a trusted checkout."""
 
 import argparse
+import base64
+import binascii
 import json
 from pathlib import Path
 import stat
+from urllib.parse import urlsplit
 
 
 MAX_FILE_SIZE = 2 * 1024 * 1024
@@ -18,6 +21,27 @@ def string_fields(value, required, optional=frozenset()):
         and required <= value.keys() <= required | optional
         and all(isinstance(field, str) and field for field in value.values())
     )
+
+
+def dependency_source(value):
+    if not string_fields(value, {"url", "hash"}):
+        return False
+    url = value["url"]
+    try:
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port == 0
+            or any(character.isspace() or ord(character) < 32 or character == "\\" for character in url)
+        ):
+            return False
+        if not value["hash"].startswith("sha256-"):
+            return False
+        digest = base64.b64decode(value["hash"][7:], validate=True)
+        return len(digest) == 32 and value["hash"] == "sha256-" + base64.b64encode(digest).decode("ascii")
+    except (ValueError, binascii.Error):
+        return False
 
 
 def apply_updates(artifact, root="."):
@@ -42,13 +66,18 @@ def apply_updates(artifact, root="."):
             raise ValueError(f"Artifact file too large: {relative}")
         content = path.read_bytes()
         value = json.loads(content)
-        valid = (
-            string_fields(value, MANIFEST_KEYS)
-            if relative.name == "manifest.json"
-            else isinstance(value, list) and all(
+        if relative.name == "manifest.json":
+            valid = string_fields(value, MANIFEST_KEYS)
+        elif type(value) is not type(json.loads((root / relative).read_bytes())):
+            valid = False
+        elif isinstance(value, list):
+            valid = all(
                 string_fields(item, DEPENDENCY_KEYS, {"url"}) for item in value
             )
-        )
+        else:
+            valid = isinstance(value, dict) and bool(value) and all(
+                dependency_source(source) for source in value.values()
+            )
         if not valid:
             raise ValueError(f"Invalid JSON schema: {relative}")
         updates[relative] = content
