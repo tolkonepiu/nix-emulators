@@ -17,6 +17,8 @@ Emulator packages for Linux and macOS, with Home Manager modules.
 | `rpcs3-git` | ✓ | ✓ | ✓ |
 | `ryubing-git` | ✓ | ✓ | ✓ |
 | `shadps4-git` | ✓ | — | — |
+| `xenia-canary-git` | ✓ | — | — |
+| `xenia-edge-git` | ✓ | — | — |
 
 ### Run or install
 

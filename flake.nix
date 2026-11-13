@@ -51,6 +51,22 @@
             repo = "pcsx2";
             ref = "master";
           };
+          xenia-canary-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/xenia-canary-git;
+            manifestPath = "pkgs/xenia-canary-git/manifest.json";
+            owner = "xenia-canary";
+            repo = "xenia-canary";
+            ref = "canary_experimental";
+            fetchSubmodules = true;
+          };
+          xenia-edge-git = (import ./shared/git-package.nix { inherit pkgs; }) {
+            package = ./pkgs/xenia-edge-git;
+            manifestPath = "pkgs/xenia-edge-git/manifest.json";
+            owner = "has207";
+            repo = "xenia-edge";
+            ref = "edge";
+            fetchSubmodules = true;
+          };
         } // nixpkgs.lib.optionalAttrs (nixpkgs.lib.hasSuffix "-linux" system || system == "aarch64-darwin") {
           rpcs3-git = (import ./shared/git-package.nix { inherit pkgs; }) {
             package = ./pkgs/rpcs3-git;
