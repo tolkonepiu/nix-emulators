@@ -29,12 +29,15 @@
   dbus,
   vulkan-loader,
   wayland,
+  git,
+  nix,
+  writeShellScript,
 }:
 let
-  pins = builtins.fromJSON (builtins.readFile ./auxiliary.json);
+  pins = builtins.fromJSON (builtins.readFile ./deps.json);
   slang = stdenv.mkDerivation {
     pname = "xenia-edge-slang";
-    version = "2026.8";
+    version = builtins.head (builtins.match ".*/slang-([0-9.]+)-linux-x86_64\\.tar\\.gz" pins.slang.url);
     src = fetchurl pins.slang;
     nativeBuildInputs = [ autoPatchelfHook ];
     buildInputs = [ stdenv.cc.cc.lib zlib libx11 ];
@@ -70,8 +73,7 @@ llvmPackages_21.stdenv.mkDerivation {
     echo 'target_link_libraries(xenia-app PRIVATE ${lib.getLib wayland}/lib/libwayland-client.so)' >> src/xenia/app/CMakeLists.txt
     mkdir -p build/data_repos/game-compatibility
     cp assets/game-compatibility/master.json build/data_repos/game-compatibility/
-    # Snapshot of xenia-canary/game-compatibility; upstream replaces the release every 8 hours.
-    gzip -dc ${./compatibility_data.json.gz} > build/data_repos/game-compatibility/compatibility_data.json
+    cp ${fetchurl pins.compatibility} build/data_repos/game-compatibility/compatibility_data.json
   '' + lib.concatMapStrings (name: ''
     mkdir -p build/data_repos/${name}
     tar xf ${fetchurl pins.${name}} --strip-components=1 -C build/data_repos/${name}
@@ -115,6 +117,13 @@ llvmPackages_21.stdenv.mkDerivation {
   preFixup = ''
     gappsWrapperArgs+=(--prefix LD_LIBRARY_PATH : "$out/lib:${lib.makeLibraryPath linuxLibraries}")
   '';
+
+  passthru = {
+    fetch-deps = writeShellScript "fetch-xenia-edge-deps" ''
+      export PATH=${lib.makeBinPath [ git nix python3 ]}
+      exec ${python3}/bin/python3 ${../../scripts/update-xenia-edge-deps.py} --source ${src}/xenia-build.py "$@"
+    '';
+  };
 
   meta = {
     description = "Xbox 360 emulator built from Xenia Edge";

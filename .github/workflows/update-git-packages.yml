@@ -28,15 +28,18 @@ jobs:
           name: nix-emulators
           skipPush: true
       # Dependency restore may execute upstream code; this job has no secrets or write permissions.
-      - name: Update source manifests and optional NuGet dependencies
+      - name: Update source manifests and optional dependencies
         run: |
-          packages=$(nix --accept-flake-config eval --json .#packages.x86_64-linux --apply 'packages: builtins.filter (name: (builtins.getAttr name packages) ? updateScript) (builtins.attrNames packages)')
+          packages=$(nix --accept-flake-config eval --json .#packages.x86_64-linux --apply 'packages: builtins.filter (name: let package = builtins.getAttr name packages; in package ? updateScript || package ? fetch-deps) (builtins.attrNames packages)')
           while IFS= read -r package; do
-            nix --accept-flake-config run ".#${package}.updateScript"
-            deps="pkgs/${package}/deps.json"
-            if [ -f "$deps" ]; then
+            has_source_update=$(nix --accept-flake-config eval --json ".#${package}" --apply 'package: package ? updateScript')
+            if [ "$has_source_update" = true ]; then
+              nix --accept-flake-config run ".#${package}.updateScript"
+            fi
+            has_dependency_update=$(nix --accept-flake-config eval --json ".#${package}" --apply 'package: package ? fetch-deps')
+            if [ "$has_dependency_update" = true ]; then
               fetch_deps=$(nix --accept-flake-config build --no-link --print-out-paths ".#${package}.fetch-deps")
-              "$fetch_deps" "$PWD/$deps"
+              "$fetch_deps" "$PWD/pkgs/$package/deps.json"
             fi
           done < <(printf '%s' "$packages" | jq -r '.[]')
       # GITHUB_TOKEN-created PRs do not trigger CI; validate here as well.
@@ -44,8 +47,8 @@ jobs:
         run: |
           nix --accept-flake-config flake check --all-systems --no-build
           nix --accept-flake-config eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-          nix --accept-flake-config build --no-link --impure --expr 'let flake = builtins.getFlake (toString ./.); in builtins.filter (package: package ? updateScript) (builtins.attrValues (builtins.getAttr builtins.currentSystem flake.packages))'
-      - name: Stage only source manifests and NuGet pins
+          nix --accept-flake-config build --no-link --impure --expr 'let flake = builtins.getFlake (toString ./.); in builtins.filter (package: package ? updateScript || package ? fetch-deps) (builtins.attrValues (builtins.getAttr builtins.currentSystem flake.packages))'
+      - name: Stage only source manifests and dependency data
         run: |
           mkdir -p "$RUNNER_TEMP/git-package-updates"
           shopt -s nullglob

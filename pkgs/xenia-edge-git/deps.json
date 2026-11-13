@@ -14,5 +14,9 @@
   "slang": {
     "url": "https://github.com/shader-slang/slang/releases/download/v2026.8/slang-2026.8-linux-x86_64.tar.gz",
     "hash": "sha256-sjr48laeeWHKFDxuzZq/bXrBSpvac5ocYoFpT3dPo+s="
+  },
+  "compatibility": {
+    "url": "https://github.com/xenia-canary/game-compatibility/releases/download/game-compatibility/compatibility_data.json",
+    "hash": "sha256-7aPps3IE4utw+gE0K5+M5KU5Z5GgUMCt2JMtF4aGEQQ="
   }
 }
