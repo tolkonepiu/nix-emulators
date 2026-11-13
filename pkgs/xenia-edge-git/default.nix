@@ -70,7 +70,8 @@ llvmPackages_21.stdenv.mkDerivation {
     echo 'target_link_libraries(xenia-app PRIVATE ${lib.getLib wayland}/lib/libwayland-client.so)' >> src/xenia/app/CMakeLists.txt
     mkdir -p build/data_repos/game-compatibility
     cp assets/game-compatibility/master.json build/data_repos/game-compatibility/
-    cp ${fetchurl pins.compatibility} build/data_repos/game-compatibility/compatibility_data.json
+    # Snapshot of xenia-canary/game-compatibility; upstream replaces the release every 8 hours.
+    gzip -dc ${./compatibility_data.json.gz} > build/data_repos/game-compatibility/compatibility_data.json
   '' + lib.concatMapStrings (name: ''
     mkdir -p build/data_repos/${name}
     tar xf ${fetchurl pins.${name}} --strip-components=1 -C build/data_repos/${name}

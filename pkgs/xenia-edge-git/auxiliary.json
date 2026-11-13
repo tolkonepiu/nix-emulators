@@ -11,10 +11,6 @@
     "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/c0f11d40b91f57853ce9714c703e119d8243f91c.tar.gz",
     "hash": "sha256-mMBoVn7aS2vZJPuW8DL6KxUe2VH8Kto88qgEMwz8TVE="
   },
-  "compatibility": {
-    "url": "https://github.com/xenia-canary/game-compatibility/releases/download/game-compatibility/compatibility_data.json",
-    "hash": "sha256-Xrz4Ec9iajoRG+flnrKBTs1gM9IbRbq06hAk8wlbfdg="
-  },
   "slang": {
     "url": "https://github.com/shader-slang/slang/releases/download/v2026.8/slang-2026.8-linux-x86_64.tar.gz",
     "hash": "sha256-sjr48laeeWHKFDxuzZq/bXrBSpvac5ocYoFpT3dPo+s="
