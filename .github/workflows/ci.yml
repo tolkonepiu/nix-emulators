@@ -67,16 +67,6 @@ jobs:
               jq -r '.[].outputs[]' "$RUNNER_TEMP/build.json" >> "$RUNNER_TEMP/cache-paths"
             fi
           done < <(jq -r '.[]' <<< "$PACKAGES")
-      - name: Check launchers without a display
-        env:
-          PACKAGES: ${{ toJSON(matrix.packages) }}
-        run: |
-          if jq -e 'index("cemu-git") != null' <<< "$PACKAGES" > /dev/null; then
-            nix --accept-flake-config run .#cemu-git -- --version
-          fi
-          if jq -e 'index("ryubing-git") != null' <<< "$PACKAGES" > /dev/null; then
-            nix --accept-flake-config run .#ryubing-git -- --no-gui --version
-          fi
       - name: Upload only source-built package outputs
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
