@@ -6,6 +6,7 @@ import base64
 import binascii
 import json
 from pathlib import Path
+import re
 import stat
 from urllib.parse import urlsplit
 
@@ -44,13 +45,17 @@ def dependency_source(value):
         return False
 
 
-def apply_updates(artifact, root="."):
+def apply_updates(artifact, package, root="."):
     artifact, root = Path(artifact), Path(root)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", package) or package == "default":
+        raise ValueError("Invalid selected package")
     allowed = {
         path.relative_to(root)
-        for pattern in ("pkgs/*/manifest.json", "pkgs/*/deps.json")
-        for path in root.glob(pattern)
+        for name in ("manifest.json", "deps.json")
+        if (path := root / "pkgs" / package / name).is_file()
     }
+    if not allowed:
+        raise ValueError(f"No update files for selected package: {package}")
     directories = {parent for path in allowed for parent in path.parents if parent != Path(".")}
     if not stat.S_ISDIR(artifact.lstat().st_mode):
         raise ValueError("Artifact must be a real directory")
@@ -91,5 +96,6 @@ def apply_updates(artifact, root="."):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("artifact", type=Path)
+    parser.add_argument("package", help="Only allow update files for this package")
     args = parser.parse_args()
-    apply_updates(args.artifact)
+    apply_updates(args.artifact, args.package)

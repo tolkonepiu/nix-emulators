@@ -220,3 +220,13 @@ nix.settings = {
 
 Apply your system configuration afterwards. Enabling the cache means trusting
 this project's signed binaries. Only builds already published to it are available.
+
+## Automated updates and CI
+
+Daily update workflows open or refresh one PR per git package. Eden has its own
+PR for the shared nightly manifest, including all binary variants.
+
+PRs and pushes to `main` build only affected packages on their supported systems.
+Shared packaging or flake changes rebuild all packages; manual CI runs do too.
+Only source-package outputs from pushes to `main` are uploaded to Cachix.
+Binary packages, update jobs, and PR builds never upload to the cache.
