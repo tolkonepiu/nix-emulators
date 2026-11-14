@@ -24,21 +24,22 @@ let
     exec ${lib.escapeShellArg "${cfg.package}/bin/${executable}"} \
       ${lib.escapeShellArgs [ "--config=${configFile}" "--storage_root=${cfg.dataDir}" "--content_root=${cfg.dataDir}/content" ]} "$@"
   '';
-  wrappedPackage = pkgs.symlinkJoin {
-    name = "${name}-configured";
-    paths = [ cfg.package ];
-    postBuild = ''
-      rm "$out/bin/${executable}"
-      ln -s ${launcher} "$out/bin/${executable}"
-      for desktop in "$out"/share/applications/*.desktop; do
-        [ -e "$desktop" ] || continue
-        cp --remove-destination "$(readlink -f "$desktop")" "$desktop"
-        substituteInPlace "$desktop" \
-          --replace-quiet 'Exec=${executable}' "Exec=$out/bin/${executable}"
-      done
-    '';
+  wrappedPackage = pkgs.runCommand "${name}-configured" {
     meta = cfg.package.meta // { mainProgram = executable; };
-  };
+  } ''
+    mkdir -p "$out/bin" "$out/share/applications"
+    ln -s ${launcher} "$out/bin/${executable}"
+    for source in "${cfg.package}"/share/applications/*.desktop; do
+      [ -e "$source" ] || continue
+      desktop="$out/share/applications/$(basename "$source")"
+      cp "$(readlink -f "$source")" "$desktop"
+      substituteInPlace "$desktop" \
+        --replace-quiet 'Exec=${executable}' "Exec=$out/bin/${executable}"
+    done
+    if [ -d "${cfg.package}/share/icons" ]; then
+      ln -s "${cfg.package}/share/icons" "$out/share/icons"
+    fi
+  '';
 in
 {
   options.programs.${name} = {
