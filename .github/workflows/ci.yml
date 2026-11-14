@@ -35,7 +35,7 @@ jobs:
       - name: Build every native package
         run: |
           # shellcheck disable=SC2016 # Interpolation belongs to Nix, not the shell.
-          nix --accept-flake-config build --no-link --print-build-logs --impure --expr \
+          nix --accept-flake-config build --no-link --log-lines 100 --impure --expr \
             'let flake = builtins.getFlake (toString ./.); in builtins.attrValues flake.packages.${builtins.currentSystem}'
       - name: Check launchers without a display
         run: |
