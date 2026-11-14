@@ -220,3 +220,8 @@ nix.settings = {
 
 Apply your system configuration afterwards. Enabling the cache means trusting
 this project's signed binaries. Only builds already published to it are available.
+
+## License
+
+This repository is licensed under the [MIT License](LICENSE). Packaged emulators
+retain their respective upstream licenses.
