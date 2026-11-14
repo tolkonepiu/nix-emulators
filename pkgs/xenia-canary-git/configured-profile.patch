@@ -1,0 +1,388 @@
+diff --git a/src/xenia/emulator.cc b/src/xenia/emulator.cc
+index 3860a92..a75d089 100644
+--- a/src/xenia/emulator.cc
++++ b/src/xenia/emulator.cc
+@@ -316,6 +316,11 @@ X_STATUS Emulator::Setup(
+   XELOGI("{}: Initializing Kernel...", __func__);
+   // Shared kernel state.
+   kernel_state_ = std::make_unique<xe::kernel::KernelState>(this);
++  if (!kernel_state_->xam_state()
++           ->profile_manager()
++           ->InitializeConfiguredProfile()) {
++    return X_STATUS_UNSUCCESSFUL;
++  }
+ #define LOAD_KERNEL_MODULE(t) \
+   static_cast<void>(kernel_state_->LoadKernelModule<kernel::t>())
+   // HLE kernel modules.
+diff --git a/src/xenia/kernel/xam/content_manager.cc b/src/xenia/kernel/xam/content_manager.cc
+index 6373909..4175835 100644
+--- a/src/xenia/kernel/xam/content_manager.cc
++++ b/src/xenia/kernel/xam/content_manager.cc
+@@ -111,10 +111,17 @@ std::unique_ptr<ContentPackage> ContentManager::CreatePackage(
+
+ ContentPackage* ContentManager::OpenAndMountPackage(
+     const std::filesystem::path host_path, const std::string_view root_name,
+-    const std::string_view root_path) {
++    const std::string_view root_path, bool validate_profile_header) {
+   auto global_lock = global_critical_region_.Acquire();
+
+-  return MountPackage(root_name, OpenPackage(host_path), root_path);
++  auto package = OpenPackage(host_path);
++  if (validate_profile_header && package &&
++      package->GetPackageType() == ContentPackageType::Directory &&
++      !static_cast<ContentPackageDirectory*>(package.get())->IsHeaderValid()) {
++    XELOGE("Profile content header is corrupt or unreadable: {}", host_path);
++    return nullptr;
++  }
++  return MountPackage(root_name, std::move(package), root_path);
+ }
+
+ ContentPackage* ContentManager::CreateAndMountPackage(
+diff --git a/src/xenia/kernel/xam/content_manager.h b/src/xenia/kernel/xam/content_manager.h
+index 1353580..ef8b31e 100644
+--- a/src/xenia/kernel/xam/content_manager.h
++++ b/src/xenia/kernel/xam/content_manager.h
+@@ -62,7 +62,8 @@ class ContentManager {
+
+   ContentPackage* OpenAndMountPackage(const std::filesystem::path host_path,
+                                       const std::string_view root_name,
+-                                      const std::string_view root_path = "");
++                                      const std::string_view root_path = "",
++                                      bool validate_profile_header = false);
+   ContentPackage* CreateAndMountPackage(const std::filesystem::path host_path,
+                                         const std::string_view root_name,
+                                         const XCONTENT_DATA_INTERNAL& data);
+diff --git a/src/xenia/kernel/xam/profile_manager.cc b/src/xenia/kernel/xam/profile_manager.cc
+index 005126b..520af9b 100644
+--- a/src/xenia/kernel/xam/profile_manager.cc
++++ b/src/xenia/kernel/xam/profile_manager.cc
+@@ -7,18 +7,29 @@
+  ******************************************************************************
+  */
+
+-#include <regex>
+-
+-#include "xenia/kernel/xam/content_manager.h"
+ #include "xenia/kernel/xam/profile_manager.h"
+
++#include <charconv>
++#include <regex>
++
+ #include "xenia/base/logging.h"
+ #include "xenia/emulator.h"
+ #include "xenia/hid/input_system.h"
+ #include "xenia/kernel/kernel_state.h"
++#include "xenia/kernel/xam/content_manager.h"
+ #include "xenia/kernel/xboxkrnl/xboxkrnl_crypt.h"
+ #include "xenia/vfs/devices/host_path_device.h"
+
++DEFINE_string(profile_name, "",
++              "Gamertag used only to create the configured local profile",
++              "Profiles");
++DEFINE_string(
++    profile_xuid, "",
++    "Persistent local profile XUID (16 hexadecimal digits, starting with E)",
++    "Profiles");
++DEFINE_bool(profile_auto_login, true,
++            "Sign the configured profile into slot 0 on startup", "Profiles");
++
+ DEFINE_string(logged_profile_slot_0_xuid, "",
+               "XUID of the profile to load on boot in slot 0", "Profiles");
+ DEFINE_string(logged_profile_slot_1_xuid, "",
+@@ -106,6 +117,11 @@ ProfileManager::ProfileManager(KernelState* kernel_state,
+   logged_profiles_.clear();
+   accounts_.clear();
+
++  // Configured creation needs a fully constructed KernelState and XamState.
++  if (!cvars::profile_name.empty() || !cvars::profile_xuid.empty()) {
++    return;
++  }
++
+   for (const auto account_xuid : FindProfiles()) {
+     LoadAccount(account_xuid);
+   }
+@@ -135,6 +151,81 @@ ProfileManager::ProfileManager(KernelState* kernel_state,
+   }
+ }
+
++bool ProfileManager::InitializeConfiguredProfile() {
++  if (cvars::profile_name.empty() && cvars::profile_xuid.empty()) {
++    return true;
++  }
++  uint64_t xuid = 0;
++  const auto& text = cvars::profile_xuid;
++  const auto parsed =
++      std::from_chars(text.data(), text.data() + text.size(), xuid, 16);
++  if (!IsGamertagValid(cvars::profile_name) || text.size() != 16 ||
++      parsed.ec != std::errc() || parsed.ptr != text.data() + text.size() ||
++      !IsOfflineXUID(xuid)) {
++    XELOGE(
++        "Configured profile: profile_name must be a valid 1-15 character "
++        "gamertag and profile_xuid must be 16 hex digits starting with E "
++        "(local XUID)");
++    return false;
++  }
++
++  configured_xuid_ = xuid;
++  try {
++    const auto root = kernel_state_->emulator()->content_root() /
++                      fmt::format("{:016X}", xuid);
++    if (std::filesystem::exists(std::filesystem::symlink_status(root))) {
++      if (!LoadAccount(xuid)) {
++        XELOGE(
++            "Configured profile {:016X}: existing profile/account is missing "
++            "or corrupt; refusing to overwrite it",
++            xuid);
++        return false;
++      }
++    } else {
++      X_XAMACCOUNTINFO account = {};
++      string_util::copy_and_swap_truncating(account.gamertag,
++                                            xe::to_utf16(cvars::profile_name),
++                                            xe::countof(account.gamertag));
++      const bool created = CreateProfile(&account, xuid);
++      DismountProfile(xuid);
++      if (!created || !LoadAccount(xuid)) {
++        XELOGE(
++            "Configured profile {:016X}: could not create and verify native "
++            "account; check content_root permissions and free space",
++            xuid);
++        return false;
++      }
++    }
++  } catch (const std::filesystem::filesystem_error& error) {
++    XELOGE("Configured profile {:016X}: {}", xuid, error.what());
++    return false;
++  }
++
++  for (const auto other : FindProfiles()) {
++    if (other != xuid) LoadAccount(other);
++  }
++  // Slot 0 belongs to the configured profile, never to a stale native
++  // selection.
++  const std::string* slots[] = {&cvars::logged_profile_slot_1_xuid,
++                                &cvars::logged_profile_slot_2_xuid,
++                                &cvars::logged_profile_slot_3_xuid};
++  for (uint8_t slot = 1; slot < 4; ++slot) {
++    if (!slots[slot - 1]->empty()) {
++      const auto other =
++          xe::string_util::from_string<uint64_t>(*slots[slot - 1], true);
++      if (other != xuid) Login(other, slot, false);
++    }
++  }
++  if (cvars::profile_auto_login) {
++    Login(xuid, 0, false);
++    if (!GetProfile(uint8_t(0)) || GetProfile(uint8_t(0))->xuid() != xuid) {
++      XELOGE("Configured profile {:016X}: automatic login failed", xuid);
++      return false;
++    }
++  }
++  return true;
++}
++
+ void ProfileManager::ReloadProfile(const uint64_t xuid) {
+   if (accounts_.contains(xuid)) {
+     accounts_.erase(xuid);
+@@ -199,7 +290,9 @@ bool ProfileManager::LoadAccount(const uint64_t xuid) {
+
+   XELOGI("{}: Loading Account: {}", __func__, xuid_as_string);
+
+-  MountProfile(xuid);
++  if (!MountProfile(xuid)) {
++    return false;
++  }
+
+   const std::string guest_path =
+       fmt::format(kDefaultMountFormat, xuid) + ":\\Account";
+@@ -216,6 +309,11 @@ bool ProfileManager::LoadAccount(const uint64_t xuid) {
+     return false;
+   }
+
++  if (output_file->entry()->size() != sizeof(X_XAMACCOUNTINFO) + 0x18) {
++    output_file->Destroy();
++    DismountProfile(xuid);
++    return false;
++  }
+   std::vector<uint8_t> file_data;
+   file_data.resize(output_file->entry()->size());
+
+@@ -225,7 +323,7 @@ bool ProfileManager::LoadAccount(const uint64_t xuid) {
+       &bytes_read);
+   output_file->Destroy();
+
+-  if (bytes_read < sizeof(X_XAMACCOUNTINFO)) {
++  if (bytes_read != sizeof(X_XAMACCOUNTINFO) + 0x18) {
+     DismountProfile(xuid);
+     return false;
+   }
+@@ -236,6 +334,7 @@ bool ProfileManager::LoadAccount(const uint64_t xuid) {
+                                             true)) {
+       XELOGW("Failed to decrypt account data file for XUID: {}",
+              xuid_as_string);
++      DismountProfile(xuid);
+       return false;
+     }
+   }
+@@ -294,7 +393,8 @@ bool ProfileManager::MountProfile(const uint64_t xuid, std::string mount_path) {
+   mount_path =
+       !mount_path.empty() ? mount_path : fmt::format(kDefaultMountFormat, xuid);
+
+-  if (!content_manager_->OpenAndMountPackage(profile_path, mount_path)) {
++  if (!content_manager_->OpenAndMountPackage(profile_path, mount_path, "",
++                                             xuid == configured_xuid_)) {
+     XELOGE(
+         "MountProfile: Unable to mount {} profile; file not found or "
+         "corrupted.",
+@@ -353,7 +453,9 @@ void ProfileManager::Login(const uint64_t xuid, const uint8_t user_index,
+   XELOGI("Loaded {} (GUID: {:016X}) to slot {}", profile.GetGamertagString(),
+          xuid, assigned_user_slot);
+
+-  MountProfile(xuid);
++  if (!MountProfile(xuid)) {
++    return;
++  }
+
+   logged_profiles_[assigned_user_slot] =
+       std::make_unique<UserProfile>(xuid, &profile);
+@@ -563,6 +665,7 @@ bool ProfileManager::CreateProfile(const X_XAMACCOUNTINFO* account_info,
+   data.title_id = kDashboardID;
+   data.content_type = XContentType::kProfile;
+   data.xuid = xuid;
++  data.set_file_name(fmt::format("{:016X}", xuid));
+
+   if (!kernel_state_->content_manager()->CreateAndMountPackage(
+           profile_path, fmt::format(kDefaultMountFormat, xuid), data)) {
+diff --git a/src/xenia/kernel/xam/profile_manager.h b/src/xenia/kernel/xam/profile_manager.h
+index a102032..ed97270 100644
+--- a/src/xenia/kernel/xam/profile_manager.h
++++ b/src/xenia/kernel/xam/profile_manager.h
+@@ -71,6 +71,8 @@ class ProfileManager {
+
+   ~ProfileManager() = default;
+
++  bool InitializeConfiguredProfile();
++
+   bool CreateProfile(const std::string gamertag, bool autologin,
+                      bool default_xuid = false);
+   bool CreateProfile(const X_XAMACCOUNTINFO* account_info, uint64_t xuid);
+@@ -135,6 +137,7 @@ class ProfileManager {
+   std::bitset<XUserMaxUserCount> GetUsedUserSlots() const;
+
+   std::map<uint64_t, X_XAMACCOUNTINFO> accounts_;
++  uint64_t configured_xuid_ = 0;
+   std::map<uint8_t, std::unique_ptr<UserProfile>> logged_profiles_;
+
+   KernelState* kernel_state_;
+diff --git a/src/xenia/kernel/xam/xcontent/xcontent_package_directory.cc b/src/xenia/kernel/xam/xcontent/xcontent_package_directory.cc
+index a7282a0..5b202c3 100644
+--- a/src/xenia/kernel/xam/xcontent/xcontent_package_directory.cc
++++ b/src/xenia/kernel/xam/xcontent/xcontent_package_directory.cc
+@@ -7,7 +7,7 @@
+  ******************************************************************************
+  */
+
+-#include "xenia/kernel/xam/content_manager.h"
++#include "xenia/kernel/xam/xcontent/xcontent_package_directory.h"
+
+ #include <array>
+ #include <string>
+@@ -19,13 +19,13 @@
+ #include "xenia/base/string.h"
+ #include "xenia/emulator.h"
+ #include "xenia/kernel/kernel_state.h"
++#include "xenia/kernel/title_id_utils.h"
++#include "xenia/kernel/xam/content_manager.h"
+ #include "xenia/kernel/xam/user_profile.h"
+ #include "xenia/kernel/xfile.h"
+ #include "xenia/kernel/xobject.h"
+ #include "xenia/vfs/devices/host_path_device.h"
+
+-#include "xenia/kernel/xam/xcontent/xcontent_package_directory.h"
+-
+ DECLARE_int32(license_mask);
+
+ namespace xe {
+@@ -51,7 +51,7 @@ ContentPackageDirectory::ContentPackageDirectory(
+   // Compute header path based on package_path
+   // We assume that package_path will always be at least 2-3 levels deep.
+   header_path_ = ComputeHeaderPath(package_path);
+-  ReadContentHeaderFile();
++  header_read_result_ = ReadContentHeaderFile();
+ }
+
+ ContentPackageDirectory::ContentPackageDirectory(
+@@ -66,9 +66,9 @@ ContentPackageDirectory::ContentPackageDirectory(
+ }
+
+ ContentPackageDirectory::~ContentPackageDirectory() {
+-  // Only update header file if package was fully mounted.
+-  if (device_) {
+-    WriteContentHeaderFile();
++  // Reading a profile must not rewrite or synthesize its header.
++  if (device_ && header_dirty_) {
++    Flush();
+   }
+ }
+
+@@ -77,7 +77,23 @@ std::unique_ptr<vfs::Device> ContentPackageDirectory::MountPackage() {
+                                                true);
+ }
+
+-X_RESULT ContentPackageDirectory::Flush() { return WriteContentHeaderFile(); }
++X_RESULT ContentPackageDirectory::Flush() {
++  if (!header_dirty_) return X_ERROR_SUCCESS;
++  const auto result = WriteContentHeaderFile();
++  if (result == X_ERROR_SUCCESS) header_dirty_ = false;
++  return result;
++}
++
++bool ContentPackageDirectory::IsHeaderValid() const {
++  std::error_code error;
++  const auto status = std::filesystem::symlink_status(header_path_, error);
++  // Extracted profiles may have no header; present but unreadable ones fail.
++  return status.type() == std::filesystem::file_type::not_found ||
++         (!error && header_read_result_ == X_ERROR_SUCCESS &&
++          IsValidPackage() &&
++          header_.content_metadata.content_type == XContentType::kProfile &&
++          header_.content_metadata.execution_info.title_id == kDashboardID);
++}
+
+ X_RESULT ContentPackageDirectory::SetThumbnail(
+     std::span<const uint8_t> thumbnail) {
+@@ -94,6 +110,7 @@ X_RESULT ContentPackageDirectory::SetThumbnail(
+          std::min(thumbnail.size(), max_thumbnail_size));
+
+   header_.content_metadata.thumbnail_size = thumbnail.size();
++  header_dirty_ = true;
+   return X_ERROR_SUCCESS;
+ }
+
+@@ -117,6 +134,7 @@ X_RESULT ContentPackageDirectory::GetThumbnail(std::vector<uint8_t>& buffer) {
+     memcpy(header_.content_metadata.thumbnail, buffer.data(), thumbnail_size);
+     header_.content_metadata.thumbnail_size =
+         static_cast<uint32_t>(thumbnail_size);
++    header_dirty_ = true;
+     std::filesystem::remove(thumb_path);
+     return X_ERROR_SUCCESS;
+   }
+diff --git a/src/xenia/kernel/xam/xcontent/xcontent_package_directory.h b/src/xenia/kernel/xam/xcontent/xcontent_package_directory.h
+index 001806a..a75948f 100644
+--- a/src/xenia/kernel/xam/xcontent/xcontent_package_directory.h
++++ b/src/xenia/kernel/xam/xcontent/xcontent_package_directory.h
+@@ -58,6 +58,7 @@ class ContentPackageDirectory final : public ContentPackage {
+   }
+   size_t GetPackageSize() const override;
+   X_RESULT Flush() override;
++  bool IsHeaderValid() const;
+
+  private:
+   X_RESULT ReadContentHeaderFile();
+@@ -65,6 +66,8 @@ class ContentPackageDirectory final : public ContentPackage {
+   void FillHeader(const XCONTENT_DATA_AGGREGATE& data);
+
+   std::filesystem::path header_path_;
++  X_RESULT header_read_result_ = X_ERROR_SUCCESS;
++  bool header_dirty_ = false;
+ };
+
+ }  // namespace xam

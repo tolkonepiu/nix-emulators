@@ -66,7 +66,7 @@ llvmPackages_21.stdenv.mkDerivation {
 
   nativeBuildInputs = [ cmake ninja pkg-config python3 wrapGAppsHook3 ];
   buildInputs = [ zlib expat lz4 curl ] ++ linuxLibraries;
-  patches = [ ./writable-paths.patch ];
+  patches = [ ./writable-paths.patch ./configured-profile.patch ];
 
   postPatch = ''
     # Xenia calls Wayland directly, rather than only through GTK.
