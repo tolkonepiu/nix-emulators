@@ -101,8 +101,14 @@
         ryubing = import ./modules/ryubing.nix {
           defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).ryubing-git;
         };
+        xenia-canary = import ./modules/xenia-canary.nix {
+          defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).xenia-canary-git;
+        };
+        xenia-edge = import ./modules/xenia-edge.nix {
+          defaultPackage = pkgs: (packageSet pkgs.stdenv.hostPlatform.system pkgs).xenia-edge-git;
+        };
         default = {
-          imports = [ self.homeManagerModules.eden self.homeManagerModules.cemu self.homeManagerModules.ryubing ];
+          imports = [ self.homeManagerModules.eden self.homeManagerModules.cemu self.homeManagerModules.ryubing self.homeManagerModules.xenia-canary self.homeManagerModules.xenia-edge ];
         };
       };
     };

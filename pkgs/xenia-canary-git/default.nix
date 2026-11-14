@@ -8,6 +8,8 @@ xenia-canary.overrideAttrs (old: {
   pname = "xenia-canary-git";
   inherit src version;
 
+  patches = (old.patches or [ ]) ++ [ ./configured-profile.patch ];
+
   postPatch = (old.postPatch or "") + ''
     substituteInPlace src/xenia/base/logging.cc \
       --replace-fail 'auto file_path = xe::filesystem::GetExecutableFolder() / file_name;' 'auto file_path = xe::filesystem::GetUserFolder() / "Xenia" / file_name;
