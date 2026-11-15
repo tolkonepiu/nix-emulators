@@ -8,8 +8,8 @@
     "hash": "sha256-GOxaU2DBO5rJIU7TcDCnwL6lnyqoyq3FiqDcUUKa47Y="
   },
   "SDL_GameControllerDB": {
-    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/c0f11d40b91f57853ce9714c703e119d8243f91c.tar.gz",
-    "hash": "sha256-mMBoVn7aS2vZJPuW8DL6KxUe2VH8Kto88qgEMwz8TVE="
+    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/9d63598d49a62b19580fc63aed6cdf906be8e1d6.tar.gz",
+    "hash": "sha256-O8iRh6f4azSyKxZpxmsv4Zg4iDtQYVMFpcnHASXKvjE="
   },
   "slang": {
     "url": "https://github.com/shader-slang/slang/releases/download/v2026.8/slang-2026.8-linux-x86_64.tar.gz",
