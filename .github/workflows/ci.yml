@@ -36,6 +36,7 @@ jobs:
           echo "matrix=$(python3 scripts/ci-packages.py "$RUNNER_TEMP/packages.json")" >> "$GITHUB_OUTPUT"
 
   build:
+    name: build (${{ matrix.system }}, ${{ join(matrix.packages, ', ') }})
     needs: check
     if: ${{ toJSON(fromJSON(needs.check.outputs.matrix).include) != '[]' }}
     strategy:
