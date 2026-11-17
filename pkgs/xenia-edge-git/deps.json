@@ -8,8 +8,8 @@
     "hash": "sha256-GOxaU2DBO5rJIU7TcDCnwL6lnyqoyq3FiqDcUUKa47Y="
   },
   "SDL_GameControllerDB": {
-    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/9d63598d49a62b19580fc63aed6cdf906be8e1d6.tar.gz",
-    "hash": "sha256-O8iRh6f4azSyKxZpxmsv4Zg4iDtQYVMFpcnHASXKvjE="
+    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/22de0d7ef9fe1e6f852a50a9403a7a48f9be30ad.tar.gz",
+    "hash": "sha256-cS0V6AWLyLk5ZmtdlpPaUyLGKodY1y5LIAZtd59XCj4="
   },
   "slang": {
     "url": "https://github.com/shader-slang/slang/releases/download/v2026.8/slang-2026.8-linux-x86_64.tar.gz",
@@ -17,6 +17,6 @@
   },
   "compatibility": {
     "url": "https://github.com/xenia-canary/game-compatibility/releases/download/game-compatibility/compatibility_data.json",
-    "hash": "sha256-WVpwDbODROv+xDStsas9KnRFV+wj3qKrCG5IjPcfT+4="
+    "hash": "sha256-jV1CfXjRC73zNpMaW98CgyMtM68/12ksRQ8wN11YEwg="
   }
 }
