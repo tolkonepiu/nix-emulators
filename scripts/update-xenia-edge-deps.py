@@ -4,17 +4,22 @@
 import argparse
 import ast
 import base64
+import gzip
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 import tempfile
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 MAX_SIZE = 2 * 1024 * 1024
+ARCHIVE_NAME = "compatibility-data.tar.gz"
+COMPATIBILITY_REPO = "xenia-canary/game-compatibility"
 
 
 def require(condition, message):
@@ -135,8 +140,9 @@ def download(url, accept="application/json"):
     return data
 
 
-def compatibility_pin(release):
+def compatibility_data(release):
     repo, tag, name = release
+    require(repo == COMPATIBILITY_REPO, "Unsupported compatibility repository")
     metadata = json.loads(download(f"https://api.github.com/repos/{repo}/releases/tags/{quote(tag, safe='')}"))
     assets = [a for a in metadata["assets"] if a.get("name") == name]
     require(len(assets) == 1, "Expected one compatibility release asset")
@@ -150,20 +156,70 @@ def compatibility_pin(release):
     if digest is not None:
         require(isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
                 and digest == "sha256:" + hashlib.sha256(data).hexdigest(), "Compatibility asset digest mismatch")
+    validate_records(data)
+    return data
+
+
+def validate_records(data):
     records = json.loads(data)
     require(isinstance(records, list) and records, "Expected nonempty compatibility records")
     for item in records:
         require(isinstance(item, dict) and set(item) == {"issue", "id", "title", "updated", "state", "labels", "url"}
                 and type(item["issue"]) is int and item["issue"] > 0
                 and all(isinstance(item[k], str) and item[k] for k in ("id", "title", "updated", "state", "url"))
-                and item["url"] == f"https://github.com/{repo}/issues/{item['issue']}"
+                and item["url"] == f"https://github.com/{COMPATIBILITY_REPO}/issues/{item['issue']}"
                 and isinstance(item["labels"], dict) and set(item["labels"]) == {"state", "others"}
                 and all(isinstance(labels, list) and all(isinstance(v, str) for v in labels)
                         for labels in item["labels"].values()), "Unsupported compatibility record schema")
-    pin = prefetch(url, refresh=True)
-    expected = "sha256-" + base64.b64encode(hashlib.sha256(data).digest()).decode()
-    require(pin["hash"] == expected, "Prefetched compatibility differs from validated current release")
-    return pin
+
+
+def compatibility_archive(data):
+    require(0 < len(data) <= MAX_SIZE, "Invalid compatibility data size")
+    validate_records(data)
+    output = io.BytesIO()
+    with gzip.GzipFile(fileobj=output, mode="wb", filename="", mtime=0) as compressed:
+        with tarfile.open(fileobj=compressed, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+            member = tarfile.TarInfo("compatibility_data.json")
+            member.size = len(data)
+            member.mode = 0o644
+            archive.addfile(member, io.BytesIO(data))
+    result = output.getvalue()
+    validate_archive(result)
+    return result
+
+
+def validate_archive(content):
+    require(0 < len(content) <= MAX_SIZE, "Invalid compatibility archive size")
+    with gzip.GzipFile(fileobj=io.BytesIO(content)) as compressed:
+        data = compressed.read(MAX_SIZE + 10241)
+    require(len(data) <= MAX_SIZE + 10240, "Compatibility archive expands beyond limit")
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as archive:
+        member = archive.next()
+        require(member is not None and member.name == "compatibility_data.json"
+                and member.type == tarfile.REGTYPE and not member.pax_headers
+                and member.offset == 0 and member.offset_data == 512
+                and 0 < member.size <= MAX_SIZE, "Invalid compatibility archive member")
+        payload = archive.extractfile(member).read()
+        end = member.offset_data + ((member.size + 511) // 512) * 512
+        # Check past tar's first end marker too, so hidden trailing members cannot pass.
+        require(len(data) >= end + 1024 and not any(data[end:]), "Unexpected trailing archive data")
+        require(archive.next() is None, "Extra compatibility archive member")
+    validate_records(payload)
+    return payload
+
+
+def atomic_write(output, content):
+    output = Path(output)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=output.parent, delete=False) as file:
+            temporary = Path(file.name)
+            file.write(content)
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, output)
+    finally:
+        if temporary:
+            temporary.unlink(missing_ok=True)
 
 
 def update(source, output):
@@ -178,19 +234,10 @@ def update(source, output):
                 "Invalid Git branch resolution")
         pins[repo["name"]] = prefetch(f"https://github.com/{github_repo(repo['url'])}/archive/{fields[0]}.tar.gz")
     pins["slang"] = prefetch(slang)
-    pins["compatibility"] = compatibility_pin(release)
+    archive = compatibility_archive(compatibility_data(release))
     output = Path(output)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", dir=output.parent, delete=False) as file:
-            temporary = Path(file.name)
-            json.dump(pins, file, indent=2)
-            file.write("\n")
-        os.chmod(temporary, 0o644)
-        os.replace(temporary, output)
-    finally:
-        if temporary:
-            temporary.unlink(missing_ok=True)
+    atomic_write(output.with_name(ARCHIVE_NAME), archive)
+    atomic_write(output, (json.dumps(pins, indent=2) + "\n").encode())
     print(f"Updated {output}")
 
 

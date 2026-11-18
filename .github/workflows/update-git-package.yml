@@ -44,21 +44,18 @@ jobs:
         run: |
           nix --accept-flake-config flake check --all-systems --no-build
           nix --accept-flake-config eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-      - name: Stage only selected package data
+      - name: Stage selected package directory
         env:
           PACKAGE: ${{ inputs.package }}
         run: |
           mkdir -p "$RUNNER_TEMP/git-package-updates/$PACKAGE"
-          for file in manifest.json deps.json; do
-            if [ -e "pkgs/$PACKAGE/$file" ]; then
-              cp --parents "pkgs/$PACKAGE/$file" "$RUNNER_TEMP/git-package-updates/$PACKAGE/"
-            fi
-          done
+          cp -a --parents "pkgs/$PACKAGE" "$RUNNER_TEMP/git-package-updates/$PACKAGE/"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: git-package-updates-${{ inputs.package }}
           path: ${{ runner.temp }}/git-package-updates/${{ inputs.package }}/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
 
   publish:
@@ -80,7 +77,7 @@ jobs:
         with:
           name: git-package-updates-${{ inputs.package }}
           path: ${{ runner.temp }}/git-package-updates/${{ inputs.package }}
-      - name: Validate and apply data-only updates
+      - name: Validate and apply package-local updates
         id: apply
         env:
           PACKAGE: ${{ inputs.package }}
@@ -88,7 +85,7 @@ jobs:
           python3 scripts/apply-git-package-updates.py "$RUNNER_TEMP/git-package-updates/$PACKAGE" "$PACKAGE"
           {
             echo 'add-paths<<EOF'
-            git ls-files -- "pkgs/$PACKAGE/manifest.json" "pkgs/$PACKAGE/deps.json"
+            echo "pkgs/$PACKAGE"
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
