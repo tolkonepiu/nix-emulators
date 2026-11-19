@@ -29,12 +29,9 @@ let
 in
 if stdenvNoCC.hostPlatform.isLinux then
   let
-    dwarfsWithCloseCleanup = dwarfs.overrideAttrs (old: {
-      patches = (old.patches or [ ]) ++ [ ./dwarfs-close-error-cleanup.patch ];
-    });
     # Upstream uses DwarFS, which appimageTools.extractType2 cannot unpack.
     contents = runCommand "${pname}-${version}-extracted" {
-      nativeBuildInputs = [ dwarfsWithCloseCleanup ];
+      nativeBuildInputs = [ dwarfs ];
     } ''
       mkdir -p "$out"
       set -o pipefail
