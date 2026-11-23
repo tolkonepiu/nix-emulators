@@ -43,7 +43,7 @@ jobs:
         run: |
           nix --accept-flake-config flake check --all-systems --no-build
           nix --accept-flake-config eval --json .#packages --apply 'builtins.mapAttrs (_: builtins.mapAttrs (_: package: package.drvPath))'
-      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
         id: app
         with:
           app-id: ${{ vars.APP_ID }}
