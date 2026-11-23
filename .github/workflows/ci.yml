@@ -76,3 +76,18 @@ jobs:
           if [[ -s "$RUNNER_TEMP/cache-paths" && -n "$CACHIX_AUTH_TOKEN" ]]; then
             cachix push nix-emulators < "$RUNNER_TEMP/cache-paths"
           fi
+
+  ci-success:
+    name: CI success
+    needs: [check, build]
+    if: ${{ always() }}
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Require successful checks and selected builds
+        env:
+          CI_SUCCESS: >-
+            ${{ needs.check.result == 'success' &&
+                (needs.build.result == 'success' ||
+                 (needs.build.result == 'skipped' &&
+                  toJSON(fromJSON(needs.check.outputs.matrix || '{}').include) == '[]')) }}
+        run: test "$CI_SUCCESS" = true
