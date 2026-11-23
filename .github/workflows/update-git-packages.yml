@@ -39,4 +39,4 @@ jobs:
     with:
       package: ${{ matrix.package }}
     secrets:
-      UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

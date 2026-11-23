@@ -7,7 +7,7 @@ on:
         required: true
         type: string
     secrets:
-      UPDATE_TOKEN:
+      APP_PRIVATE_KEY:
         required: true
 
 permissions:
@@ -62,14 +62,6 @@ jobs:
     needs: generate
     runs-on: ubuntu-26.04
     steps:
-      - name: Require a token that triggers PR CI
-        env:
-          UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
-        run: |
-          if [ -z "$UPDATE_TOKEN" ]; then
-            echo '::error::UPDATE_TOKEN is required to create update PRs that trigger CI.'
-            exit 1
-          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -88,11 +80,40 @@ jobs:
             echo "pkgs/$PACKAGE"
             echo EOF
           } >> "$GITHUB_OUTPUT"
-      - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: app
         with:
-          token: ${{ secrets.UPDATE_TOKEN }}
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Resolve App bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          login="${APP_SLUG}[bot]"
+          id=$(gh api "users/$login" --jq .id)
+          echo "identity=$login <$id+$login@users.noreply.github.com>" >> "$GITHUB_OUTPUT"
+      - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
+        id: pr
+        with:
+          token: ${{ steps.app.outputs.token }}
+          author: ${{ steps.bot.outputs.identity }}
+          committer: ${{ steps.bot.outputs.identity }}
           branch: automation/${{ inputs.package }}
           delete-branch: true
           add-paths: ${{ steps.apply.outputs.add-paths }}
           commit-message: 'chore: update ${{ inputs.package }}'
           title: 'chore: update ${{ inputs.package }}'
+      - name: Enable auto-merge
+        if: >-
+          steps.pr.outputs.pull-request-number != '' &&
+          contains(fromJSON('["created", "updated"]'), steps.pr.outputs.pull-request-operation)
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          PR_HEAD_SHA: ${{ steps.pr.outputs.pull-request-head-sha }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash --match-head-commit "$PR_HEAD_SHA"
