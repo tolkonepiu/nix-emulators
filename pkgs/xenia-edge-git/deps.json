@@ -1,15 +1,15 @@
 {
   "game-patches": {
-    "url": "https://github.com/xenia-canary/game-patches/archive/fe957a050e37f5a1e3f485ca43c2e37ee2a9c92d.tar.gz",
-    "hash": "sha256-zu7XZ08oJ4xgU4iK3f+wehF5QAcYlxWFeG7PDlylpPA="
+    "url": "https://github.com/xenia-canary/game-patches/archive/89b08eee7515cbcd6b37d476c806df0beb8bb2d1.tar.gz",
+    "hash": "sha256-f08rH5C3jIzVG4043v7iaQr/S5Cco3MejlMDLBAP9/w="
   },
   "x360db": {
     "url": "https://github.com/xenia-manager/x360db/archive/3a673638ca22bd78a4768f3d7730dceb40e9ec32.tar.gz",
     "hash": "sha256-GOxaU2DBO5rJIU7TcDCnwL6lnyqoyq3FiqDcUUKa47Y="
   },
   "SDL_GameControllerDB": {
-    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/4e87e3c6c2574f49e1cdf8526b6f829b61e5ccb3.tar.gz",
-    "hash": "sha256-whrbZOSC2EPhQuUS5z4aZ/r9tW9+Q9l82gLZdMyyMic="
+    "url": "https://github.com/mdqinc/SDL_GameControllerDB/archive/f95fbc0590c70bd06015b8d2fe03f55d9e2b821d.tar.gz",
+    "hash": "sha256-lEmjZglLgu7IAIRAghnsQL0KKl4VSz5AHNUWbPW9D0U="
   },
   "slang": {
     "url": "https://github.com/shader-slang/slang/releases/download/v2026.8/slang-2026.8-linux-x86_64.tar.gz",
