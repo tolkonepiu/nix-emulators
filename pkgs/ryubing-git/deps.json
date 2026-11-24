@@ -136,6 +136,11 @@
   },
   {
     "pname": "Gommon",
+    "version": "2.8.1.1",
+    "hash": "sha256-W9lpYZk5XRY5F6Drpl9FE9qlqEyaU1PCM6cnyRmdOnE="
+  },
+  {
+    "pname": "Gommon",
     "version": "2.8.1.2",
     "hash": "sha256-tJdDKZvu02E8XjooAvRFTOMCjse+w8BCVOwsIQ5K0zg="
   },
@@ -637,13 +642,13 @@
   },
   {
     "pname": "Ryujinx.Systems.Update.Common",
-    "version": "2.0.6",
-    "hash": "sha256-2btWQmCwqJSxISN3N7HdRCbkfSAs4Ph+o8hT+GlySYk="
+    "version": "2.0.11",
+    "hash": "sha256-i/kKWRaxo5FPG4UaxQqEkLEXFrNq9G1sxZv70LF318E="
   },
   {
     "pname": "Ryujinx.UpdateClient",
-    "version": "2.0.6",
-    "hash": "sha256-BNURkQqMopmpQSl33dOTK1ldsHSVVZeg/cP8zc3wvvM="
+    "version": "2.0.11",
+    "hash": "sha256-YcKplUbUsUq1rEOVrEZjwMbDAYAZoOSWSUY9XWaX1KU="
   },
   {
     "pname": "securifybv.PropertyStore",
