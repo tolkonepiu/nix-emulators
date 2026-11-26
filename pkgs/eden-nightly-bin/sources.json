@@ -1,47 +1,47 @@
 {
-  "version": "1795491592.b5d668560b",
-  "tag": "v1795491592.b5d668560b",
+  "version": "1795656132.1cd2ecd562",
+  "tag": "v1795656132.1cd2ecd562",
   "sources": {
     "x86_64-linux": {
       "standard": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-amd64-gcc-standard.AppImage",
-        "hash": "sha256-nu45TJU2mL5tnsSvAnz3aW0YetBKiEVXGDlvq5PdNc8="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-amd64-gcc-standard.AppImage",
+        "hash": "sha256-CKPUyynumixM+dm0V36V6zfRi7QO4nS8sH36dP19qiI="
       },
       "pgo": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-amd64-clang-pgo.AppImage",
-        "hash": "sha256-yDDGwrIguMMBjYaZ+aP3PlS8muXnd8UYhR+QzK7FciI="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-amd64-clang-pgo.AppImage",
+        "hash": "sha256-4UcnQIkyY/QfLkY7RY7CUUima47e5zKLX83VfXz6r44="
       },
       "zen2": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-steamdeck-gcc-standard.AppImage",
-        "hash": "sha256-c3gdgOoobIgGqTd6uCWsJhCAST8+kblS2jfa/eXEH3M="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-steamdeck-gcc-standard.AppImage",
+        "hash": "sha256-bteBRfaNWxuY9L5TF2TLqGjtHwIjDZ9baB50egvfYzM="
       },
       "zen2-pgo": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-steamdeck-clang-pgo.AppImage",
-        "hash": "sha256-+2a3uDYB5gVQOpCQfv30gqSusqEWnR90qjl3g11+AXE="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-steamdeck-clang-pgo.AppImage",
+        "hash": "sha256-b++qJjWSv5a8+mOX7cND3JAJIMeD5AFb07NxsGld/Ak="
       },
       "zen4": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-rog-ally-gcc-standard.AppImage",
-        "hash": "sha256-j1xt9wuB5sEYRy+jL5P+LXV55qB3aqA0fjslQBfJOws="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-rog-ally-gcc-standard.AppImage",
+        "hash": "sha256-MDmjH/c3U/aIiL2BBwE5iGG2rTSNHf5j7YtH/EuNX/4="
       },
       "zen4-pgo": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-rog-ally-clang-pgo.AppImage",
-        "hash": "sha256-4kSbBb+WNVsK6El9LrzKRWAIzTLtG9SQQMm0/n5eqkU="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-rog-ally-clang-pgo.AppImage",
+        "hash": "sha256-kGqdsqf5nnNDDL3Fl4t1bffbl/rLy3UV7SoFetuL3+8="
       }
     },
     "aarch64-linux": {
       "standard": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-aarch64-gcc-standard.AppImage",
-        "hash": "sha256-JVs+z3GtY+3aQYtF/722C7t81y5rn3VkAj2WoHU5JsM="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-aarch64-gcc-standard.AppImage",
+        "hash": "sha256-gCQdcoTppkum5qIwwNTkfXIOzphicDMqqS0wFpjk12Q="
       },
       "pgo": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-Linux-b5d668560b-aarch64-clang-pgo.AppImage",
-        "hash": "sha256-8CcF2PqU1DLgDItQStbvQRuWe9+QrnJ9x6z60/HCEI0="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-Linux-1cd2ecd562-aarch64-clang-pgo.AppImage",
+        "hash": "sha256-mS9XzcdsUJLJNGkK2xvxUYELMNK4Zwk9fSYLWrWX9z4="
       }
     },
     "aarch64-darwin": {
       "standard": {
-        "url": "https://nightly.eden-emu.dev/v1795491592.b5d668560b/Eden-macOS-b5d668560b.dmg",
-        "hash": "sha256-s+698RfO7DdIaovMSvC+T6tGiNvSE2BlYgNwlP/z1bI="
+        "url": "https://nightly.eden-emu.dev/v1795656132.1cd2ecd562/Eden-macOS-1cd2ecd562.dmg",
+        "hash": "sha256-GgjsMfNQeHHRAr0TgJW4VdQtp7k1QskBYNxAioIQStE="
       }
     }
   }
